@@ -169,4 +169,32 @@
 
 ---
 
+## 9. The Role of the A2A Protocol (2026-03-16)
+
+- **A2A (Agent-to-Agent)** — Google's open protocol for communication between AI agents
+- Each agent announces itself: `/.well-known/agent.json` → "I'm here, this is what I can do"
+- **Memex PAIM is already A2A-ready** — `/.well-known/agent.json` is already built in
+- This was not accidental: the AI + database connection logic already works in Memex PAIM — A2A builds on top of it
+
+### Specialized Databases as A2A Agents
+```
+Platform (#12)
+    ├── Memex PAIM LLM (base engine)
+    ├── Military DB agent    → /.well-known/agent.json
+    ├── Medical DB agent     → /.well-known/agent.json
+    ├── DIY DB agent         → /.well-known/agent.json
+    └── ... (other specialized DBs)
+```
+Each specialized database is an independent A2A agent — the platform is just the connector.
+
+### Limitations
+- Still a young protocol (2025), actively evolving
+- Not needed in offline mode — local Qwen + IndexedDB works independently
+- Security questions (who can call whom) still to be resolved
+
+### Why This Matters
+The A2A support built into Memex PAIM was a forward-looking decision — it will serve as the bridge between the local offline AI and the broader agent ecosystem.
+
+---
+
 *Summary compiled from exported claude.ai data. conversations.json contains 26 conversations (2026-01-11 – 2026-03-16), memories.json contains a structured memory summary.*

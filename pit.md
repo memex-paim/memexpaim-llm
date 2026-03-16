@@ -167,4 +167,32 @@
 
 ---
 
+## 9. A2A protokoll szerepe (2026-03-16)
+
+- **A2A (Agent-to-Agent)** — Google nyílt protokollja AI ügynökök közötti kommunikációhoz
+- Minden ügynök hirdeti magát: `/.well-known/agent.json` → "itt vagyok, ezt tudok"
+- **Memex PAIM már A2A-képes** — a `/.well-known/agent.json` már be van építve
+- Ez nem véletlen: az AI + adatbázis összekötés logikája a Memex PAIM-ban már működik — az A2A erre épül rá
+
+### A specializált DB-k mint A2A ügynökök
+```
+Platform (#12)
+    ├── Memex PAIM LLM (alap motor)
+    ├── Katonai DB ügynök  → /.well-known/agent.json
+    ├── Orvosi DB ügynök   → /.well-known/agent.json
+    ├── Barkács DB ügynök  → /.well-known/agent.json
+    └── ... (többi specializált DB)
+```
+Minden specializált adatbázis egy önálló A2A ügynök — a platform csak összekötő.
+
+### Korlátok
+- Még fiatal protokoll (2025), fejlődik
+- Offline módban nem szükséges — a helyi Qwen + IndexedDB önállóan működik
+- Biztonsági kérdések (ki hívhat kit) még megoldandók
+
+### Miért fontos
+A Memex PAIM-ba épített A2A támogatás előrelátó döntés volt — ez lesz a híd a helyi offline AI és a nagyobb ügynök-ökoszisztéma között.
+
+---
+
 *Összefoglaló készült a claude.ai exportált adataiból. A conversations.json 26 beszélgetést tartalmaz (2026-01-11 – 2026-03-16), a memories.json egy strukturált memória-összefoglalót.*
