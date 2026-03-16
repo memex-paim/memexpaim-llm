@@ -97,6 +97,14 @@
 - Marketing érték: "1 milliárd embernek nyújtottunk ingyenes orvosi segítséget"
 - Csökkenti az orvosterheltséget, lefedi az ellátás nélküli területeket
 
+#### Jogi keret — a gyógyszerdoboz analógia (2026-03-16)
+- Az app nem orvos, hanem **orvosképző segédeszköz** — mint egy tankönyv
+- Minden kimenet mellé: *"Forduljon kezelőorvosához / gyógyszerészéhez"*
+- Nem diagnózis, hanem valószínűségi becslés: *"A jelenlegi adatok alapján 70% valószínűséggel csak kialvatlanság"*
+- Ez a séma már létező és bevált — WebMD, Ada Health ugyanígy működnek
+- Nem kell orvosi engedély, nem kell háttérben orvos — csak jól megírt disclaimer
+- A meteorológus analógia: nem garantál, csak valószínűsít → senki sem pereli a meteorológust
+
 ### 3. Érzékszervi fogyatékossággal élők segítése
 - Vak: szemüveg-kamera + fülhallgató → "5 méterrel előtted zebra"
 - Süket: okosóra Morse-kód rezgés a csuklón
