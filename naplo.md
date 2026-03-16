@@ -7,13 +7,20 @@
 
 ## 2026-03-16
 
-### ✅ Modell döntés
-- **Qwen3-0.6B-q4f16_1-MLC** — végleges választás
-- WebLLM-ben fut, böngészőben, telepítés nélkül
-- 100+ nyelv, magyar is
-- ~1.4GB VRAM, ~350MB letöltés
-- 4096 token kontextus ablak (WebLLM korlát)
-- Referencia pont: Gemini Nano (gyorsabb de zárt, csak Pixel 8+)
+### ❌ ELVETETT — Qwen modellek (multilinguális)
+- Qwen2.5-0.5B és Qwen3-0.6B elvetva
+- Ok 1: Qwen2.5 magyar nyelv = értelmetlen szöveg (teszten bizonyítva)
+- Ok 2: Qwen3 WebGPU shader hiba — 0.2.79 lib nem ismeri még
+- Ok 3: multilinguális = nagyobb modell = lassabb
+- Tanulság: ha csak angol kell → kisebb, gyorsabb, megbízhatóbb modell elérhető
+
+### ✅ VÉGLEGES modell döntés — SmolLM2-360M
+- **SmolLM2-360M-Instruct-q4f16_1-MLC**
+- Angol only — DB is angolul
+- ~376MB letöltés (3x kisebb mint Qwen)
+- Becsült sebesség: ~25-35 tok/s (2x gyorsabb mint Qwen2.5)
+- WebLLM 0.2.79-ben biztosan elérhető
+- Referencia: PC Chrome Nvidia = 14 tok/s volt Qwen2.5-tel → SmolLM2 ~25-30 várható
 
 ### ✅ Sebesség és válasz stílus
 - Becsült sebesség: ~10-20 tok/s Android mid-range GPU-n
