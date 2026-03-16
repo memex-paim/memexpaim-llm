@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Memex">
+<meta name="theme-color" content="#161b22">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>Memex</title>
+<script>if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});</script>
+<style>
+:root{--bg0:#0d1117;--bg1:#161b22;--bg2:#21262d;--border:#30363d;--text:#c9d1d9;--text2:#8b949e;--accent:#58a6ff;--green:#3fb950;--purple:#a371f7;--red:#f85149;--orange:#d29922;}
+[data-skin="light"]{--bg0:#f6f8fa;--bg1:#ffffff;--bg2:#eaeef2;--border:#d0d7de;--text:#1f2328;--text2:#636c76;--accent:#0969da;--green:#1a7f37;--purple:#8250df;--red:#d1242f;--orange:#9a6700;}
+[data-skin="forest"]{--bg0:#0b1a12;--bg1:#112219;--bg2:#1e3a28;--border:#2a5040;--text:#c8e8cc;--text2:#6a9870;--accent:#56d364;--green:#56d364;--purple:#7ee787;--red:#f85149;--orange:#e3b341;}
+[data-skin="ocean"]{--bg0:#050e1a;--bg1:#0a1628;--bg2:#0e2040;--border:#1a3060;--text:#aecbf0;--text2:#5080a8;--accent:#4d9fec;--green:#1abc9c;--purple:#7c8ef7;--red:#e74c3c;--orange:#e67e22;}
+[data-skin="amber"]{--bg0:#0f0d00;--bg1:#1a1800;--bg2:#272200;--border:#3a3200;--text:#f0e0a0;--text2:#907840;--accent:#f0a500;--green:#7cb518;--purple:#c9a227;--red:#e74c3c;--orange:#f0a500;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:monospace;background:var(--bg0);color:var(--text);min-height:100vh;overflow:hidden;}
+
+/* ── HEADER ── */
+header{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 10px;display:flex;align-items:center;gap:8px;height:40px;flex-shrink:0;}
+.hbtn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:4px 6px;border-radius:4px;line-height:1;}
+.hbtn:hover{color:var(--text);background:var(--bg2);}
+header h1{font-size:0.95rem;color:var(--accent);white-space:nowrap;}
+.conn-info{font-size:0.7rem;color:var(--text2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dot-ok{color:var(--green);}.dot-err{color:var(--red);}
+.header-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.memex-toggle{display:flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border);padding:3px 9px;border-radius:14px;cursor:pointer;user-select:none;}
+.memex-toggle.on{border-color:var(--green);}
+.toggle-dot{width:6px;height:6px;border-radius:50%;background:var(--text2);}
+.memex-toggle.on .toggle-dot{background:var(--green);}
+.toggle-label{font-size:0.68rem;color:var(--text2);}
+.memex-toggle.on .toggle-label{color:var(--green);}
+.skin-dots{display:flex;gap:3px;align-items:center;}
+.sdot{width:12px;height:12px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border 0.15s;}
+.sdot:hover,.sdot.on{border-color:var(--text);}
+.help-btn{font-size:0.72rem;color:var(--accent);cursor:pointer;padding:3px 7px;border:1px solid var(--accent);border-radius:10px;background:none;white-space:nowrap;}
+.help-btn:hover{background:rgba(88,166,255,0.1);}
+
+/* ── LAYOUT ── */
+.layout{display:flex;height:calc(100vh - 40px);}
+
+/* ── SIDEBAR ── */
+.sidebar{width:230px;min-width:230px;background:var(--bg1);border-right:1px solid var(--border);padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:0;transition:width 0.2s,min-width 0.2s,padding 0.2s,opacity 0.15s;}
+.sidebar.hidden{width:0;min-width:0;padding:0;opacity:0;overflow:hidden;}
+.divider{border:none;border-top:1px solid var(--border);margin:4px 0;}
+.acc{display:flex;flex-direction:column;}
+.acc-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:5px 2px;border-radius:4px;}
+.acc-hdr:hover .section-title{color:var(--accent);}
+.acc-arrow{font-size:0.55rem;color:var(--text2);transition:transform 0.18s;flex-shrink:0;margin-left:4px;}
+.acc-arrow.open{transform:rotate(90deg);}
+.acc-body{overflow:hidden;transition:max-height 0.25s ease,opacity 0.2s;max-height:900px;opacity:1;}
+.acc-body.closed{max-height:0;opacity:0;}
+.acc-inner{display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 0;}
+.section-title{font-size:0.63rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;}
+label{font-size:0.76rem;color:var(--text2);display:block;margin-bottom:2px;}
+input,select,textarea{width:100%;background:var(--bg0);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:monospace;font-size:0.78rem;outline:none;transition:border 0.15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+input[type="password"]{letter-spacing:2px;}
+.btn{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.76rem;width:100%;transition:border-color 0.15s;}
+.btn:hover{border-color:var(--accent);}
+.btn-green{border-color:var(--green);color:var(--green);}
+.btn-green:hover{background:rgba(63,185,80,0.08);}
+.small{font-size:0.7rem;color:var(--text2);}
+.stat-sor{display:flex;gap:10px;font-size:0.72rem;color:var(--text2);}
+.stat-sor span{color:var(--text);font-weight:bold;}
+.api-aktiv{font-size:0.66rem;color:var(--green);padding:1px 5px;border:1px solid var(--green);border-radius:6px;display:inline-block;}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.tabs{display:flex;background:var(--bg1);border-bottom:1px solid var(--border);padding:0 12px;flex-shrink:0;}
+.tab{padding:8px 12px;font-size:0.78rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);transition:all 0.15s;user-select:none;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.tab-panel.active{display:flex;}
+.chat-area{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:11px;}
+.msg{display:flex;gap:8px;max-width:820px;}
+.msg.human{align-self:flex-end;flex-direction:row-reverse;}
+.msg.ai{align-self:flex-start;}
+.av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:bold;flex-shrink:0;}
+.av.h{background:#1f6feb;color:#fff;}.av.a{background:#238636;color:#fff;}
+.bubble{background:var(--bg1);border:1px solid var(--border);padding:7px 11px;border-radius:8px;font-size:0.82rem;line-height:1.6;max-width:600px;white-space:pre-wrap;color:var(--text);}
+.msg.human .bubble{background:#1f3a5f;border-color:#1f6feb;}
+[data-skin="light"] .msg.human .bubble{background:#dbeafe;border-color:#93c5fd;}
+.meta{font-size:0.65rem;color:var(--text2);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.rtag{font-size:0.6rem;padding:1px 5px;border-radius:7px;border:1px solid;font-weight:bold;}
+.r-db{border-color:var(--accent);color:var(--accent);}
+.r-ai{border-color:var(--purple);color:var(--purple);}
+.r-mix{border-color:var(--green);color:var(--green);}
+.r-web{border-color:var(--orange);color:var(--orange);}
+.web-sources{margin-top:5px;font-size:0.65rem;color:var(--text2);display:flex;flex-direction:column;gap:2px;}
+.web-sources a{color:var(--accent);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;display:inline-block;}
+.web-sources a:hover{text-decoration:underline;}
+.saved-tag{font-size:0.6rem;color:var(--green);display:none;}
+.valasz-resz{margin-bottom:6px;}
+.valasz-resz:last-of-type{margin-bottom:0;}
+.resz-cim{font-size:0.6rem;font-weight:bold;padding:1px 6px;border-radius:5px 5px 0 0;display:inline-block;margin-bottom:2px;}
+.resz-cim.r-db{background:rgba(88,166,255,0.12);color:var(--accent);border:1px solid var(--accent);}
+.resz-cim.r-ai{background:rgba(163,113,247,0.12);color:var(--purple);border:1px solid var(--purple);}
+.resz-sep{border:none;border-top:1px solid var(--border);margin:6px 0;}
+.chunk-btn{background:none;border:1px solid var(--orange);color:var(--orange);border-radius:6px;padding:3px 9px;font-size:0.75rem;cursor:pointer;margin-top:4px;}
+.chunk-btn:hover{background:rgba(210,153,34,0.12);}
+.chunk-btn:disabled{opacity:0.5;cursor:default;}
+.chunk-flash{font-size:0.7rem;color:var(--green);min-height:1em;}
+.saved-tag.vis{display:inline;}
+.typing{display:flex;gap:4px;padding:3px 0;}
+.typing span{width:5px;height:5px;background:var(--accent);border-radius:50%;animation:bounce 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:0.2s;}
+.typing span:nth-child(3){animation-delay:0.4s;}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.input-row{border-top:1px solid var(--border);background:var(--bg1);flex-shrink:0;}
+.prefix-sor{display:flex;gap:5px;padding:6px 12px 2px;}
+.pfx{padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:monospace;font-size:0.7rem;user-select:none;}
+.pfx.p-db{border-color:var(--accent);color:var(--accent);}
+.pfx.p-ai{border-color:var(--purple);color:var(--purple);}
+.pfx.p-mix{border-color:var(--green);color:var(--green);}
+.pfx.p-chunk{border-color:var(--orange);color:var(--orange);}
+.prefix-hint{font-size:0.65rem;color:var(--text2);padding:0 12px 2px;}
+.input-sor{display:flex;gap:6px;padding:3px 12px 9px;}
+.input-sor textarea{flex:1;resize:none;height:46px;}
+.send-btn{background:var(--accent);border:none;color:#fff;padding:0 13px;border-radius:4px;cursor:pointer;font-size:0.83rem;height:46px;}
+.send-btn:hover{opacity:0.85;}
+.send-btn:disabled{background:var(--bg2);color:var(--text2);cursor:default;}
+.kereses-panel{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+.kereses-sor{display:flex;gap:5px;}
+.kereses-sor input{flex:1;}
+.kereses-sor select{width:85px;}
+.talalat-lista{display:flex;flex-direction:column;gap:5px;}
+.talalat-item{background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 11px;}
+.talalat-item:hover{border-color:var(--accent);}
+.talalat-meta{font-size:0.68rem;color:var(--text2);margin-bottom:3px;display:flex;gap:5px;flex-wrap:wrap;}
+.talalat-szoveg{font-size:0.8rem;}
+.iro-h{color:var(--accent);}.iro-ai{color:var(--purple);}
+.bej-panel{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;}
+.bej-panel textarea{height:110px;resize:vertical;}
+.f-sor{display:flex;gap:4px;}
+.f-btn{flex:1;padding:5px 2px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:monospace;font-size:0.7rem;text-align:center;}
+.f-btn.sel-1{border-color:var(--red);color:var(--red);}
+.f-btn.sel-2{border-color:var(--orange);color:var(--orange);}
+.f-btn.sel-3{border-color:var(--green);color:var(--green);}
+.f-btn.sel-4{border-color:var(--text2);color:var(--text2);}
+.mentve-flash{font-size:0.72rem;color:var(--green);display:none;}
+.export-panel{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.exp-box{display:flex;flex-direction:column;gap:7px;}
+.exp-box h3{font-size:0.78rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;}
+.exp-lista-item{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.76rem;}
+.exp-lista-item a{color:var(--accent);}
+.uuid-box{font-size:0.68rem;color:var(--text2);word-break:break-all;padding:4px 0;}
+.db-info-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:0.75rem;color:var(--text2);display:flex;flex-direction:column;gap:3px;}
+.db-info-box .db-free{color:var(--green);font-weight:bold;}
+.db-info-box .db-paid{color:var(--orange);}
+.imp-fajl-btn{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:8px 12px;cursor:pointer;font-family:monospace;font-size:0.78rem;width:100%;transition:border-color 0.15s;}
+.imp-fajl-btn:hover{border-color:var(--accent);}
+.imp-fajl-btn .imp-icon{font-size:1.1rem;flex-shrink:0;}
+.imp-fajl-nev{font-size:0.7rem;color:var(--text2);padding:2px 0 0 2px;min-height:1em;}
+.imp-fajl-nev.van{color:var(--green);}
+input[type=file]#imp-fajl{display:none;}
+
+/* ── PARANCSOK TAB ── */
+.prmpt-panel{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
+.prmpt-box{display:flex;flex-direction:column;gap:7px;}
+.prmpt-box h3{font-size:0.78rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:3px;margin-bottom:2px;}
+.prmpt-box textarea{height:120px;resize:vertical;}
+.pcmd-grid{display:flex;flex-direction:column;gap:5px;}
+.pcmd-item{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;transition:border-color 0.15s;}
+.pcmd-item.on{border-color:var(--accent);}
+.pcmd-toggle{cursor:pointer;font-size:0.9rem;flex-shrink:0;user-select:none;}
+.pcmd-emoji{width:26px;text-align:center;font-size:1rem;flex-shrink:0;}
+.pcmd-text{flex:1;background:var(--bg0);border:1px solid var(--border);color:var(--text);padding:3px 7px;border-radius:4px;font-family:monospace;font-size:0.72rem;outline:none;}
+.pcmd-text:focus{border-color:var(--accent);}
+/* Quick bar a chat felett */
+.quick-bar{display:none;flex-wrap:wrap;gap:5px;padding:5px 12px 3px;border-top:1px solid var(--border);}
+.quick-bar.has-items{display:flex;}
+.qcmd-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text2);padding:3px 9px;border-radius:12px;cursor:pointer;font-family:monospace;font-size:0.71rem;display:flex;align-items:center;gap:3px;white-space:nowrap;}
+.qcmd-btn:hover{border-color:var(--accent);color:var(--accent);}
+.session-horgony-wrap{display:flex;align-items:center;gap:3px;margin-top:4px;}
+.session-horgony-inp{background:none;border:none;color:var(--orange);font-family:monospace;font-size:0.72rem;width:100%;outline:none;padding:1px 2px;min-width:0;}
+.session-horgony-inp::placeholder{color:var(--text2);}
+.session-horgony-x{background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.8rem;padding:0 2px;display:none;flex-shrink:0;}
+.session-horgony-x:hover{color:var(--orange);}
+
+/* ── OVERLAY (fordítás / help) ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.ov-box{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:22px 26px;max-width:480px;width:90%;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+
+/* fordítás */
+#lang-overlay .lo-title{font-size:1rem;color:var(--accent);}
+.lo-dots{display:flex;gap:6px;justify-content:center;margin-top:8px;}
+.lo-dots span{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:bounce 1.2s infinite;}
+.lo-dots span:nth-child(2){animation-delay:0.2s;}
+.lo-dots span:nth-child(3){animation-delay:0.4s;}
+
+/* help ablak */
+#help-overlay .ov-box{max-width:540px;}
+.help-close{align-self:flex-end;background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;padding:3px 10px;border-radius:4px;font-family:monospace;font-size:0.75rem;}
+.help-close:hover{border-color:var(--accent);color:var(--text);}
+.help-title{font-size:1.1rem;color:var(--accent);font-weight:bold;}
+.help-tagline{font-size:0.82rem;color:var(--green);font-style:italic;}
+.help-section{display:flex;flex-direction:column;gap:5px;}
+.help-section h3{font-size:0.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:3px;}
+.help-section p{font-size:0.82rem;line-height:1.65;color:var(--text);}
+.help-section ul{padding-left:16px;display:flex;flex-direction:column;gap:3px;}
+.help-section li{font-size:0.8rem;line-height:1.5;color:var(--text);}
+.help-free{background:var(--bg2);border:1px solid var(--green);border-radius:6px;padding:10px 14px;font-size:0.8rem;line-height:1.65;color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- Fordítás overlay -->
+<div class="overlay" id="lang-overlay">
+  <div class="ov-box" style="text-align:center;align-items:center;">
+    <div class="lo-title" id="lo-lang-nev">…</div>
+    <div class="small" id="lo-msg" style="margin-top:4px;">Az AI fordít…</div>
+    <div class="lo-dots" style="margin-top:12px;"><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<!-- Help overlay -->
+<div class="overlay" id="help-overlay" onclick="if(event.target===this)helpZar()">
+  <div class="ov-box" id="help-box">
+    <button class="help-close" onclick="helpZar()">✕ Bezár</button>
+    <div class="help-title" id="h-title">⬡ Memex Paim – Kézikönyv</div>
+    <div class="help-tagline" id="h-tagline">Az AI elfelejt. Az adatbázis emlékszik.</div>
+    <div class="help-free" id="h-free">
+      Az adatod a tiéd. A Memex nem küld el semmit sehova – minden a te eszközödön marad, a te szabályaid szerint. Nincs előfizetés, nincs felhő, nincs megfigyelés. Te döntöd el, mit jegyzel fel, mit kérdezel, és mit törölsz. Ez a te emlékezeted – nem egy céggé.
+    </div>
+    <div class="help-section" id="hs-alapok">
+      <h3 id="h-sec1">Mire való?</h3>
+      <p id="h-p1">A Memex egy személyes adatbázis + AI asszisztens. Az AI (Claude, Gemini stb.) önmagában elfelejt mindent a beszélgetés után. A Memex megoldja ezt: amit fontosnak tartasz, eltárolod, és legközelebb az AI már tudja.</p>
+    </div>
+    <div class="help-section" id="hs-chat">
+      <h3 id="h-sec2">Chat módok</h3>
+      <ul>
+        <li id="h-li1"><b>🗄 DB</b> – az AI a te adatbázisodból keres választ. Ha nincs találat, az AI saját tudásából egészít ki.</li>
+        <li id="h-li2"><b>🤖 AI</b> – az AI a saját tudásából válaszol, nem néz a DB-be. Prefix: <code>@</code></li>
+        <li id="h-li3"><b>⚡ Mind</b> – DB + AI egyszerre, kombinált válasz. Prefix: <code>&amp;</code></li>
+      </ul>
+    </div>
+    <div class="help-section" id="hs-bej">
+      <h3 id="h-sec3">Bejegyzés</h3>
+      <p id="h-p2">Ide írod amit meg akarsz jegyezni. Adj hozzá horgonyokat (kulcsszavak) és fontossági szintet. Az AI-val folytatott chateknél az automatikus mentés is ide ment – ha a Memex BE van kapcsolva.</p>
+    </div>
+    <div class="help-section" id="hs-auto">
+      <h3 id="h-sec4">Auto mentés</h3>
+      <p id="h-p3">Ha a Memex kapcsoló BE van (fejlécben), minden chat kérdés-válasz automatikusan bekerül az adatbázisba. A fontossági szint meghatározza, mennyire kerüljön előtérbe a kereséskor.</p>
+    </div>
+    <div class="help-section" id="hs-export">
+      <h3 id="h-sec5">Export / Import</h3>
+      <p id="h-p4">Az Export tab-on le tudod tölteni a teljes adatbázisodat egy titkosított fájlba. Ezt másik eszközre importálhatod, vagy egyszerűen biztonsági másolatnak tárolhatod.</p>
+    </div>
+    <div class="help-section" id="hs-api">
+      <h3 id="h-sec6">API kulcs</h3>
+      <p id="h-p5">Az AI szekción belül add meg az API kulcsod (Claude: <code>sk-ant-…</code>, Gemini: <code>AIza…</code>). A kulcs nálad marad – a te eszközödön, senki máshoz nem kerül. Az "Auto" mód automatikusan választ a beállított kulcsok közül.</p>
+    </div>
+    <div class="help-section" id="hs-chunk">
+      <h3 id="h-sec7">✂️ Automatikus daraboló</h3>
+      <p id="h-p6">Nagy szöveget (könyv, cikk, AI válasz) bekezdésekre bont és minden részt külön bejegyzésként ment el. Kereséskor csak a releváns bekezdés jön vissza – nem az egész szöveg. Működik kézi bevitelnél (Bejegyzés fül ✂️ gomb) és nagy AI válaszoknál is.</p>
+    </div>
+    <div class="small" id="h-version" style="text-align:center;margin-top:6px;color:var(--text2);">Memex PAIM v0.3 · Személyes AI emlékezet · 2026</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <button class="hbtn" onclick="sidebarToggle()" title="Oldalsáv">☰</button>
+  <h1>Memex Paim</h1>
+  <div class="conn-info" id="conn-info">
+    <span id="conn-dot" class="dot-ok">●</span>
+    <span id="conn-text"> …</span>
+  </div>
+  <div class="header-right">
+    <div class="skin-dots">
+      <div class="sdot on"  style="background:#161b22;" onclick="skinSet('')"       title="Sötét"></div>
+      <div class="sdot"     style="background:#f6f8fa;" onclick="skinSet('light')"  title="Világos"></div>
+      <div class="sdot"     style="background:#112219;" onclick="skinSet('forest')" title="Erdő"></div>
+      <div class="sdot"     style="background:#0a1628;" onclick="skinSet('ocean')"  title="Óceán"></div>
+      <div class="sdot"     style="background:#1a1800;" onclick="skinSet('amber')"  title="Borostyán"></div>
+    </div>
+    <div class="memex-toggle on" id="memex-toggle" onclick="memexToggle()">
+      <div class="toggle-dot"></div>
+      <span class="toggle-label" id="toggle-label">BE</span>
+    </div>
+    <button class="help-btn" onclick="helpNyit()" id="b-help">❓ Segítség</button>
+  </div>
+</header>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+
+  <!-- SZERVER -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('srv')">
+      <span class="section-title" id="s-server">🔌 Szerver</span>
+      <span class="acc-arrow open" id="arr-srv">▶</span>
+    </div>
+    <div class="acc-body" id="acc-srv">
+      <div class="acc-inner">
+        <div><label id="l-url">Cím</label>
+          <input id="server-url" type="text" value="http://192.168.0.64:8765"></div>
+        <button class="btn" onclick="tesztelKapcsolat()" id="b-test">Tesztelés</button>
+        <div id="conn-detail" class="small"></div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- AI -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('ai')">
+      <span class="section-title" id="s-ai">🤖 AI</span>
+      <span class="acc-arrow open" id="arr-ai">▶</span>
+    </div>
+    <div class="acc-body" id="acc-ai">
+      <div class="acc-inner">
+        <div class="small"><span id="aktiv-lbl">Aktív:</span> <span id="api-aktiv-label" class="api-aktiv">–</span></div>
+        <div><label id="l-api">API típus</label>
+          <select id="api-type" onchange="apiValtozas()">
+            <option value="auto">⚡ Auto</option>
+            <option value="claude">Claude (Anthropic)</option>
+            <option value="gemini">Gemini (Google)</option>
+            <option value="offline">Offline</option>
+          </select></div>
+        <div id="kulcs-block">
+          <label id="l-key">API kulcs</label>
+          <input id="api-key" type="password" placeholder="sk-ant-... / AIza...">
+          <button class="btn" style="margin-top:4px;" onclick="kulcsMent()" id="b-savekey">💾 Mentés</button>
+          <div id="kulcs-info" class="small" style="margin-top:3px;"></div>
+        </div>
+        <div id="model-block">
+          <label>Modell</label>
+          <select id="model-select" onchange="modelKivalaszt(this.value)"></select>
+          <button class="btn" style="margin-top:4px;" onclick="modelekListaz()" id="b-models">↻ Frissít</button>
+          <div id="model-info" class="small" style="margin-top:2px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- DB -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('db')">
+      <span class="section-title" id="s-db">🗄 Adatbázis</span>
+      <span class="acc-arrow open" id="arr-db">▶</span>
+    </div>
+    <div class="acc-body" id="acc-db">
+      <div class="acc-inner">
+        <div class="stat-sor" id="stat-sor">
+          <div>Összes: <span id="stat-ossz">–</span></div>
+          <div>Human: <span id="stat-human">–</span></div>
+          <div>AI: <span id="stat-ai">–</span></div>
+        </div>
+        <div class="small"><span id="meret-lbl">Méret:</span> <span id="stat-meret">–</span> &nbsp;<a href="#" onclick="statFrissit();return false;" style="color:var(--accent)">↻</a></div>
+        <div id="irok-stat" class="small">–</div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- AUTO MENTÉS -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('auto')">
+      <span class="section-title" id="s-auto">💾 Auto mentés</span>
+      <span class="acc-arrow open" id="arr-auto">▶</span>
+    </div>
+    <div class="acc-body" id="acc-auto">
+      <div class="acc-inner">
+        <select id="auto-fontossag">
+          <option value="3" id="o3">🟢 Normál</option>
+          <option value="2" id="o2">🟡 Fontos</option>
+          <option value="4" id="o4" selected>⚪ Duma</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- MEGJELENÉS -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('look')">
+      <span class="section-title" id="s-look">🎨 Megjelenés</span>
+      <span class="acc-arrow open" id="arr-look">▶</span>
+    </div>
+    <div class="acc-body" id="acc-look">
+      <div class="acc-inner">
+        <div>
+          <label id="l-lang">Nyelv</label>
+          <select id="lang-select" onchange="langValaszt(this.value)">
+            <option value="en">🇬🇧 English</option>
+            <option value="ar">🇸🇦 العربية</option>
+            <option value="bn">🇧🇩 বাংলা</option>
+            <option value="zh">🇨🇳 中文</option>
+            <option value="cs">🇨🇿 Čeština</option>
+            <option value="nl">🇳🇱 Nederlands</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="el">🇬🇷 Ελληνικά</option>
+            <option value="he">🇮🇱 עברית</option>
+            <option value="hi">🇮🇳 हिन्दी</option>
+            <option value="hu">🇭🇺 Magyar</option>
+            <option value="id">🇮🇩 Bahasa Indonesia</option>
+            <option value="it">🇮🇹 Italiano</option>
+            <option value="ja">🇯🇵 日本語</option>
+            <option value="ko">🇰🇷 한국어</option>
+            <option value="pl">🇵🇱 Polski</option>
+            <option value="pt">🇵🇹 Português</option>
+            <option value="ro">🇷🇴 Română</option>
+            <option value="ru">🇷🇺 Русский</option>
+            <option value="sw">🌍 Kiswahili</option>
+            <option value="es">🇪🇸 Español</option>
+            <option value="sv">🇸🇪 Svenska</option>
+            <option value="th">🇹🇭 ภาษาไทย</option>
+            <option value="tr">🇹🇷 Türkçe</option>
+            <option value="uk">🇺🇦 Українська</option>
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+            <option value="zu">🌍 isiZulu</option>
+          </select>
+          <div id="lang-status" class="small" style="margin-top:3px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- UUID -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('uuid')">
+      <span class="section-title" id="s-uuid">🆔 UUID</span>
+      <span class="acc-arrow" id="arr-uuid">▶</span>
+    </div>
+    <div class="acc-body closed" id="acc-uuid">
+      <div class="acc-inner">
+        <div id="uuid-box" class="uuid-box">–</div>
+        <button class="btn" onclick="uuidLeker()" id="b-uuid">Lekérés</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<div class="main">
+  <div class="tabs">
+    <div class="tab active" onclick="tabValt('chat')"   id="tab-chat">💬 <span id="t-chat">Chat</span></div>
+    <div class="tab"        onclick="tabValt('bej')"    id="tab-bej">✏️ <span id="t-bej">Bejegyzés</span></div>
+    <div class="tab"        onclick="tabValt('keres')"  id="tab-keres">🔍 <span id="t-keres">Keresés</span></div>
+    <div class="tab"        onclick="tabValt('export')" id="tab-export">📦 <span id="t-export">Import/Export</span></div>
+    <div class="tab"        onclick="tabValt('prmpt')"  id="tab-prmpt">⚡ <span id="t-prmpt">Parancsok</span></div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="tab-panel active" id="tp-chat">
+    <div class="chat-area" id="chat-area">
+      <div class="msg ai">
+        <div class="av a">M</div>
+        <div>
+          <div class="bubble" id="welcome-msg">Szia! Válassz módot és kérdezz.
+🗄 DB – adatbázisból
+🤖 AI – csak AI tudásából
+⚡ Mind – DB + AI egyszerre</div>
+          <div class="meta">Memex</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="prefix-sor">
+        <button class="pfx p-db" id="pfx-db"  onclick="prefixSet('db')"  title="DB">🗄</button>
+        <button class="pfx"      id="pfx-ai"  onclick="prefixSet('ai')"  title="AI">🤖</button>
+        <button class="pfx"      id="pfx-mix" onclick="prefixSet('mix')" title="DB+AI">⚡</button>
+        <button class="pfx" id="pfx-chunk" onclick="chunkToggle()" title="Darabolva ment" style="margin-left:auto">✂️</button>
+      </div>
+      <div class="prefix-hint" id="pfx-hint">DB-ből keres</div>
+      <div class="input-sor">
+        <textarea id="user-input" placeholder=""
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();kuld();}"
+          oninput="prefixAutoDetect(this.value)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="kuld()">▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BEJEGYZÉS -->
+  <div class="tab-panel" id="tp-bej">
+    <div class="bej-panel">
+      <div><label id="l-content">Tartalom</label>
+        <textarea id="bej-tartalom"></textarea></div>
+      <div><label id="l-hooks">Horgonyok</label>
+        <input id="bej-horgonyok" type="text" placeholder=""></div>
+      <div><label id="l-type">Típus</label>
+        <select id="bej-tipus">
+          <option value="">auto</option>
+          <option value="!döntés" id="o-dec">!döntés</option>
+          <option value="!ötlet" id="o-idea">!ötlet</option>
+          <option value="!hiba" id="o-bug">!hiba</option>
+          <option value="#python">#python</option>
+          <option value="@projekt" id="o-proj">@projekt</option>
+        </select></div>
+      <div><label id="l-prio">Fontosság</label>
+        <div class="f-sor">
+          <button class="f-btn" id="f1" onclick="fontSet(1)">🔴 Kritikus</button>
+          <button class="f-btn" id="f2" onclick="fontSet(2)">🟡 Fontos</button>
+          <button class="f-btn sel-3" id="f3" onclick="fontSet(3)">🟢 Normál</button>
+          <button class="f-btn" id="f4" onclick="fontSet(4)">⚪ Duma</button>
+        </div></div>
+      <div class="mentve-flash" id="mentve-flash"></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-green" onclick="bejMent()" id="b-bejment">💾 Mentés</button>
+        <button class="chunk-btn" onclick="bejDarabol()" id="b-chunk">✂️ Darabolva ment</button>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:2px;">
+        <label style="font-size:0.7rem;color:var(--text2);" id="l-session-horgony">Chat ablak aktív horgony</label>
+        <div class="session-horgony-wrap">
+          <input class="session-horgony-inp" id="session-horgony" type="text" placeholder="@horgony @horgony2 …" oninput="sessionHorgonyFrissit()" onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+          <button class="session-horgony-x" id="session-horgony-x" onclick="sessionHorgonyTorol()" title="Törlés">×</button>
+        </div>
+      </div>
+      <div class="chunk-flash" id="chunk-flash"></div>
+    </div>
+  </div>
+
+  <!-- KERESÉS -->
+  <div class="tab-panel" id="tp-keres">
+    <div class="kereses-panel">
+      <div class="kereses-sor">
+        <input id="keres-q" type="text" placeholder=""
+          onkeydown="if(event.key==='Enter')keresFutat()">
+        <select id="keres-iro">
+          <option value="" id="o-mind">Mind</option>
+          <option value="human">Human</option>
+          <option value="ai">AI</option>
+        </select>
+        <button class="btn" style="width:auto;padding:5px 10px;" onclick="keresFutat()">↵</button>
+      </div>
+      <div id="talalat-lista" class="talalat-lista">
+        <div class="small" id="keres-hint">Írj be kifejezést és nyomj Entert.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="tab-panel" id="tp-export">
+    <div class="export-panel">
+      <div class="db-info-box">
+        <span class="db-free" id="db-info-free">✓ 1 adatbázis ingyenes</span>
+        <span class="db-paid" id="db-info-paid">+ Minden további adatbázis: $1</span>
+        <span id="db-info-sub">Export mindig ingyenes · Az adat a tiéd</span>
+      </div>
+      <div class="exp-box">
+        <h3 id="h-export">Export</h3>
+        <input id="exp-jelszo" type="password" placeholder="" id="exp-jelszo">
+        <div class="small" style="color:var(--text2);margin:-4px 0 4px;" id="exp-jelszo-hint">🔒 Opcionális. Ha elfelejted: az export fájl olvashatatlan lesz, de az adatbázisod a telefonon megmarad – soha nem törlődik.</div>
+        <button class="btn btn-green" onclick="exportFutat()" id="b-export">📦 Export</button>
+        <div id="exp-eredmeny" class="small"></div>
+      </div>
+      <hr class="divider">
+      <div class="exp-box">
+        <h3 id="h-uj">Új adatbázis</h3>
+        <div class="small" style="color:var(--text2);" id="uj-desc">Törli az összes bejegyzést, és üres adatbázissal kezd.</div>
+        <button class="btn" style="border-color:var(--red);color:var(--red);" onclick="ujAdatbazis()" id="b-uj">🗑 Új adatbázis</button>
+        <div id="uj-eredmeny" class="small"></div>
+      </div>
+      <hr class="divider">
+      <div class="exp-box">
+        <h3 id="h-import">Import</h3>
+        <div class="small" style="color:var(--orange);" id="imp-warn">⚠ Backup automatikusan készül.</div>
+        <input id="imp-fajl" type="file" accept=".memex" onchange="impFajlValasztva(this)">
+        <button class="imp-fajl-btn" onclick="document.getElementById('imp-fajl').click()">
+          <span class="imp-icon">📂</span>
+          <span id="imp-fajl-lbl">Fájl kiválasztása…</span>
+        </button>
+        <div class="imp-fajl-nev" id="imp-fajl-nev"></div>
+        <input id="imp-jelszo" type="password" placeholder="" id="imp-jelszo">
+        <div class="small" style="color:var(--text2);margin:-4px 0 4px;" id="imp-jelszo-hint">🔒 Csak akkor kell ha exportáláskor be volt állítva jelszó.</div>
+        <div style="display:flex;gap:5px;">
+          <button class="btn" style="flex:1;" onclick="importFutat(false)" id="b-imp-same">📥 Ugyanaz</button>
+          <button class="btn" style="flex:1;border-color:var(--red);color:var(--red);" onclick="importFutat(true)" id="b-imp-new">📱 Új eszköz</button>
+        </div>
+        <div id="imp-eredmeny" class="small"></div>
+      </div>
+      <hr class="divider">
+      <div class="exp-box">
+        <h3 id="h-prev">Korábbi exportok</h3>
+        <button class="btn" onclick="exportListaFrissit()" id="b-explist">Frissítés</button>
+        <div id="export-lista"></div>
+      </div>
+      <hr class="divider">
+      <div class="exp-box">
+        <h3>UUID</h3>
+        <div id="uuid-exp" class="uuid-box">–</div>
+        <button class="btn" onclick="uuidLeker()" id="b-uuid-exp">Lekérés</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARANCSOK -->
+  <div class="tab-panel" id="tp-prmpt">
+    <div class="prmpt-panel">
+      <div class="prmpt-box">
+        <h3>🧠 <span id="sys-t">System Prompt</span></h3>
+        <div class="small" id="sys-desc" style="color:var(--text2);">Az AI minden kérdésnél ezt kapja háttérként. Üres = szerver alapértelmezett.</div>
+        <textarea id="sysprompt-ta" placeholder=""></textarea>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-green" onclick="syspromptMent()" style="flex:1;" id="b-sysment">💾 Mentés</button>
+          <button class="btn" onclick="syspromptTorol()" style="flex:1;border-color:var(--red);color:var(--red);" id="b-systorol">🗑 Törlés</button>
+        </div>
+        <div id="sysprompt-flash" class="small"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+/* ═══════════════════════════════════════════════════
+   FORDÍTÁS – beépített 15 + AI cache
+   ═══════════════════════════════════════════════════ */
+
+// Magyar alap szövegek
+const HU = {
+  sub:"Személyes AI memória",test:"Tesztelés",save_key:"💾 Mentés",models:"↻ Frissít",
+  auto_s:"💾 Auto mentés",look:"🎨 Megjelenés",uuid_s:"🆔 UUID",fetch:"Lekérés",
+  chat:"Chat",entry:"Bejegyzés",search:"Keresés",export_t:"Import/Export",
+  welcome:"Szia! Válassz módot és kérdezz.\n🗄 DB – adatbázisból\n🤖 AI – csak AI tudásából\n⚡ Mind – DB + AI egyszerre",
+  hint_db:"DB-ből keres",hint_ai:"Csak AI tudásából",hint_mix:"DB + AI egyszerre",
+  content:"Tartalom",hooks:"Horgonyok",type_l:"Típus",prio:"Fontosság",save:"💾 Mentés",
+  hooks_ph:"pl. memex, ötlet",type_dec:"!döntés",type_idea:"!ötlet",type_bug:"!hiba",type_proj:"@projekt",
+  pw:"Jelszó",file_l:"Fájl",exp_btn:"📦 Export",prev:"Korábbi exportok",upd:"Frissítés",
+  same:"📥 Ugyanaz",newdev:"📱 Új eszköz",warn:"⚠ Backup automatikusan készül.",
+  db_free:"✓ 1 adatbázis ingyenes",db_paid:"+ Minden további adatbázis: $1",db_sub:"Export mindig ingyenes · Az adat a tiéd",
+  file_pick:"Fájl kiválasztása…",
+  h_uj:"Új adatbázis",uj_desc:"Törli az összes bejegyzést, és üres adatbázissal kezd.",
+  exp_pw_ph:"Jelszó (opcionális)",imp_pw_ph:"Jelszó (ha volt beállítva)",
+  exp_pw_hint:"🔒 Opcionális. Ha elfelejted: az export fájl olvashatatlan lesz, de az adatbázisod a telefonon megmarad – soha nem törlődik.",
+  imp_pw_hint:"🔒 Csak akkor kell ha exportáláskor be volt állítva jelszó.",
+  l_session_horgony:"Chat ablak aktív horgony",session_horgony_ph:"@horgony @horgony2 …",
+  all_opt:"Mind",testing:"Tesztelés…",connected:"Kapcsolódva",err:"Nem elérhető",
+  aktiv_lbl:"Aktív:",meret_lbl:"Méret:",
+  input_ph:"Írj kérdést… (Enter=küld, Shift+Enter=új sor)",search_ph:"Keresési kifejezés…",
+  searching:"Keresés…",no_result:"Nincs találat.",no_exp:"Még nincs export.",
+  saved:"✓ Elmentve!",loading:"Lekérdezés…",api_lbl:"API típus",key_lbl:"API kulcs",
+  custom_lbl:"Egyedi modell ID",normal:"🟢 Normál",fontos:"🟡 Fontos",duma:"⚪ Duma",
+  hint_keres:"Írj be kifejezést és nyomj Entert.",url_lbl:"Cím",lang_lbl:"Nyelv",
+  dball:"Összes",dbhuman:"Human",dbai:"AI",
+  f1:"🔴 Kritikus",f2:"🟡 Fontos",f3:"🟢 Normál",f4:"⚪ Duma",
+  be:"BE",ki:"KI",
+  srv_s:"🔌 Szerver",ai_s:"🤖 AI",db_s:"🗄 Adatbázis",
+  h_export:"Export",h_import:"Import",help:"❓ Segítség",
+  // Help szövegek
+  h_title:"⬡ Memex Paim – Kézikönyv",
+  h_tagline:"Az AI elfelejt. Az adatbázis emlékszik.",
+  h_free:"Az adatod a tiéd. A Memex nem küld el semmit sehova – minden a te eszközödön marad, a te szabályaid szerint. Nincs előfizetés, nincs felhő, nincs megfigyelés. Te döntöd el, mit jegyzel fel, mit kérdezel, és mit törölsz. Ez a te emlékezeted – nem egy cégé.",
+  h_sec1:"Mire való?",h_p1:"A Memex egy személyes adatbázis + AI asszisztens. Az AI önmagában elfelejt mindent a beszélgetés után. A Memex megoldja ezt: amit fontosnak tartasz, eltárolod – és legközelebb az AI már tudja.",
+  h_sec2:"Chat módok",
+  h_li1:"🗄 DB – az AI a te adatbázisodból keres választ. Ha nincs találat, saját tudásából egészít ki.",
+  h_li2:"🤖 AI – az AI saját tudásából válaszol, nem néz a DB-be. Prefix: @",
+  h_li3:"⚡ Mind – DB + AI egyszerre, kombinált válasz. Prefix: &",
+  h_sec3:"Bejegyzés",h_p2:"Ide írod amit meg akarsz jegyezni. Adj hozzá horgonyokat (kulcsszavak) és fontossági szintet. Az auto mentés is ide ment, ha a Memex BE van kapcsolva.",
+  h_sec4:"Auto mentés",h_p3:"Ha a Memex kapcsoló BE van, minden chat kérdés-válasz automatikusan bekerül az adatbázisba.",
+  h_sec5:"Export / Import",h_p4:"Az Export tabon letöltheted a teljes adatbázisodat titkosítva. Másik eszközre importálható, vagy biztonsági másolatnak tárolható.",
+  h_sec6:"API kulcs",h_p5:"Az AI szekcióban add meg az API kulcsod (Claude: sk-ant-…, Gemini: AIza…). A kulcs nálad marad – a te eszközödön, senki máshoz nem kerül. Az Auto mód automatikusan választ a beállított kulcsok közül.",
+  h_sec7:"✂️ Automatikus daraboló",h_p6:"Nagy szöveget (könyv, cikk, AI válasz) bekezdésekre bont és minden részt külön bejegyzésként ment el. Kereséskor csak a releváns bekezdés jön vissza – nem az egész szöveg. Működik kézi bevitelnél és nagy AI válaszoknál is.",
+  chunk_btn:"✂️ Darabolva ment",chunk_done:"✓ {n} darabban elmentve",chunk_info:"✂️ Mentés darabokban",
+  sys_t:"System Prompt",sys_desc:"Az AI minden kérdésnél ezt kapja háttérként. Üres = szerver alapértelmezett.",
+  sys_ph:"Pl: Te egy személyes asszisztens vagy. Érdeklődési körök: sport, tech, befektetés.",
+  sys_save:"💾 Mentés",sys_del:"🗑 Törlés",
+  pcmd_t:"Gyorsparancsok",pcmd_desc:"Pipáld be a kívántakat – kattintásra elküldi az AI-nak. Emoji és szöveg átírható.",
+  pcmd_save:"💾 Parancsok mentése",pcmd_ph:"Kérdés szövege…",
+  t_prmpt:"⚙️ Parancsok",
+  h_close:"✕ Bezár",h_ver:"Memex PAIM v0.3 · Személyes AI emlékezet · 2026",
+};
+
+// Beépített fordítások (EN + DE + FR + ES teljes, többi rövidített + AI egészíti ki)
+const BEEPITETT = {
+  hu:null,
+  en:{sub:"Personal AI memory",test:"Test",save_key:"💾 Save",models:"📋 Models",auto_s:"💾 Auto-save",look:"🎨 Appearance",uuid_s:"🆔 UUID",fetch:"Fetch",chat:"Chat",entry:"Entry",search:"Search",export_t:"Import/Export",welcome:"Hi! Choose a mode.\n🗄 DB – database\n🤖 AI – AI only\n⚡ Both – DB + AI",hint_db:"Searches DB",hint_ai:"AI only",hint_mix:"DB + AI",content:"Content",hooks:"Anchors",type_l:"Type",prio:"Priority",save:"💾 Save",pw:"Password",file_l:"File",exp_btn:"📦 Export",prev:"Previous exports",upd:"Refresh",same:"📥 Same device",newdev:"📱 New device",warn:"⚠ Backup automatic.",db_free:"✓ 1 database free",db_paid:"+ Each additional database: $1",db_sub:"Export always free · Your data is yours",file_pick:"Choose file…",h_uj:"New database",uj_desc:"Deletes all entries and starts with an empty database.",exp_pw_ph:"Password (optional)",imp_pw_ph:"Password (if set during export)",exp_pw_hint:"🔒 Optional. If forgotten: the export file becomes unreadable, but your database on the device remains intact – never deleted.",imp_pw_hint:"🔒 Only needed if a password was set during export.",l_session_horgony:"Active chat anchor",session_horgony_ph:"@anchor @anchor2 …",all_opt:"All",testing:"Testing…",connected:"Connected",err:"Unavailable",searching:"Searching…",no_result:"No results.",no_exp:"No exports yet.",saved:"✓ Saved!",loading:"Loading…",api_lbl:"API type",key_lbl:"API key",custom_lbl:"Custom model ID",normal:"🟢 Normal",fontos:"🟡 Important",duma:"⚪ Casual",hint_keres:"Type and press Enter.",url_lbl:"Address",lang_lbl:"Language",dball:"Total",dbhuman:"Human",dbai:"AI",f1:"🔴 Critical",f2:"🟡 Important",f3:"🟢 Normal",f4:"⚪ Casual",be:"ON",ki:"OFF",srv_s:"🔌 Server",ai_s:"🤖 AI",db_s:"🗄 Database",h_export:"Export",h_import:"Import",help:"❓ Help",h_title:"⬡ Memex Paim – Manual",h_tagline:"AI forgets. The database remembers.",h_free:"Your data is yours. Memex sends nothing anywhere – everything stays on your device, on your terms. No subscription, no cloud, no surveillance. You decide what to record, what to ask, and what to delete. This is your memory – not a company's.",h_sec1:"What is it for?",h_p1:"Memex is a personal database + AI assistant. AI on its own forgets everything after a conversation. Memex solves this: what you consider important, you store – and next time the AI already knows.",h_sec2:"Chat modes",h_li1:"🗄 DB – AI searches your database for an answer. Falls back to its own knowledge if nothing found.",h_li2:"🤖 AI – AI answers from its own knowledge only. Prefix: @",h_li3:"⚡ Both – DB + AI combined. Prefix: &",h_sec3:"Entry",h_p2:"Write what you want to remember. Add anchors (keywords) and a priority level. Auto-save also saves here when Memex is ON.",h_sec4:"Auto-save",h_p3:"When the Memex toggle is ON, every chat Q&A is automatically stored in the database.",h_sec5:"Export / Import",h_p4:"On the Export tab, download your full database encrypted. Import it to another device or keep it as a backup.",h_sec6:"API key",h_p5:"Enter your API key in the AI section. The key is stored on the Pi and goes nowhere else. Auto mode picks automatically.",h_close:"✕ Close",h_ver:"Memex PAIM v0.3 · Personal AI memory · 2026",
+    aktiv_lbl:"Active:",meret_lbl:"Size:",input_ph:"Ask a question… (Enter=send, Shift+Enter=new line)",search_ph:"Search expression…",
+    hooks_ph:"e.g. memex, idea",type_dec:"!decision",type_idea:"!idea",type_bug:"!bug",type_proj:"@project",
+    h_sec7:"✂️ Auto-chunker",h_p6:"Splits large text (book, article, AI response) into paragraphs and saves each as a separate entry. Search returns only the relevant paragraph – not the entire text. Works for manual entry and large AI responses.",
+    chunk_btn:"✂️ Save chunked",chunk_done:"✓ Saved in {n} parts",chunk_info:"✂️ Save in chunks",
+    sys_t:"System Prompt",sys_desc:"The AI receives this as background context on every query. Empty = server default.",
+    sys_ph:"E.g: You are a personal assistant. Interests: sport, tech, investing.",
+    sys_save:"💾 Save",sys_del:"🗑 Delete",
+    pcmd_t:"Quick commands",pcmd_desc:"Check to enable – click to send to AI. Emoji and text are editable.",
+    pcmd_save:"💾 Save commands",pcmd_ph:"Question text…",
+    t_prmpt:"⚙️ Commands"},
+  de:{sub:"Persönliches KI-Gedächtnis",test:"Testen",save_key:"💾 Speichern",models:"📋 Modelle",auto_s:"💾 Auto-Speichern",look:"🎨 Erscheinungsbild",uuid_s:"🆔 UUID",fetch:"Abrufen",chat:"Chat",entry:"Eintrag",search:"Suche",export_t:"Import/Export",welcome:"Hallo! Wähle einen Modus.\n🗄 DB – Datenbank\n🤖 KI – nur KI\n⚡ Beide – DB + KI",hint_db:"Sucht DB",hint_ai:"Nur KI",hint_mix:"DB + KI",content:"Inhalt",hooks:"Anker",type_l:"Typ",prio:"Priorität",save:"💾 Speichern",pw:"Passwort",file_l:"Datei",exp_btn:"📦 Exportieren",prev:"Frühere Exporte",upd:"Aktualisieren",same:"📥 Gleiches Gerät",newdev:"📱 Neues Gerät",warn:"⚠ Backup automatisch.",all_opt:"Alle",testing:"Teste…",connected:"Verbunden",err:"Nicht erreichbar",searching:"Suche…",no_result:"Kein Ergebnis.",no_exp:"Noch kein Export.",saved:"✓ Gespeichert!",loading:"Lade…",api_lbl:"API-Typ",key_lbl:"API-Schlüssel",custom_lbl:"Eigene Modell-ID",normal:"🟢 Normal",fontos:"🟡 Wichtig",duma:"⚪ Geplauder",hint_keres:"Begriff eingeben, Enter.",url_lbl:"Adresse",lang_lbl:"Sprache",dball:"Gesamt",dbhuman:"Mensch",dbai:"KI",f1:"🔴 Kritisch",f2:"🟡 Wichtig",f3:"🟢 Normal",f4:"⚪ Geplauder",be:"AN",ki:"AUS",srv_s:"🔌 Server",ai_s:"🤖 KI",db_s:"🗄 Datenbank",h_export:"Export",h_import:"Import",help:"❓ Hilfe",h_title:"⬡ Memex Paim – Handbuch",h_tagline:"KI vergisst. Die Datenbank erinnert sich.",h_free:"Deine Daten gehören dir. Memex sendet nichts irgendwohin – alles bleibt auf deinem Gerät, nach deinen Regeln. Kein Abo, keine Cloud, keine Überwachung. Du entscheidest, was du aufzeichnest, was du fragst und was du löschst.",h_sec1:"Wofür?",h_p1:"Memex ist eine persönliche Datenbank + KI-Assistent. KI vergisst nach dem Gespräch alles. Memex löst das: Was du wichtig findest, speicherst du – und beim nächsten Mal weiß die KI es bereits.",h_sec2:"Chat-Modi",h_li1:"🗄 DB – KI sucht in deiner Datenbank. Fällt auf eigenes Wissen zurück, wenn nichts gefunden.",h_li2:"🤖 KI – Antwortet nur aus eigenem Wissen. Präfix: @",h_li3:"⚡ Beide – DB + KI kombiniert. Präfix: &",h_sec3:"Eintrag",h_p2:"Schreib, was du merken möchtest. Füge Anker und Priorität hinzu.",h_sec4:"Auto-Speichern",h_p3:"Wenn der Memex-Schalter AN ist, wird jedes Chat-Q&A automatisch gespeichert.",h_sec5:"Export / Import",h_p4:"Lade deine gesamte Datenbank verschlüsselt herunter.",h_sec6:"API-Schlüssel",h_p5:"Gib deinen API-Schlüssel im KI-Bereich ein. Wird lokal gespeichert.",h_close:"✕ Schließen",h_ver:"Memex PAIM v0.3 · Persönliches KI-Gedächtnis · 2026"},
+  fr:{sub:"Mémoire IA personnelle",test:"Tester",save_key:"💾 Sauvegarder",models:"📋 Modèles",auto_s:"💾 Sauvegarde auto",look:"🎨 Apparence",uuid_s:"🆔 UUID",fetch:"Obtenir",chat:"Chat",entry:"Entrée",search:"Recherche",export_t:"Import/Export",welcome:"Bonjour! Choisis un mode.\n🗄 DB – base de données\n🤖 IA – IA seulement\n⚡ Les deux – DB + IA",hint_db:"Cherche DB",hint_ai:"IA uniquement",hint_mix:"DB + IA",content:"Contenu",hooks:"Ancres",type_l:"Type",prio:"Priorité",save:"💾 Sauvegarder",pw:"Mot de passe",file_l:"Fichier",exp_btn:"📦 Exporter",prev:"Exports précédents",upd:"Rafraîchir",same:"📥 Même appareil",newdev:"📱 Nouvel appareil",warn:"⚠ Sauvegarde automatique.",all_opt:"Tous",testing:"Test…",connected:"Connecté",err:"Non disponible",searching:"Recherche…",no_result:"Aucun résultat.",no_exp:"Pas encore d'export.",saved:"✓ Sauvegardé!",loading:"Chargement…",api_lbl:"Type d'API",key_lbl:"Clé API",custom_lbl:"ID modèle personnalisé",normal:"🟢 Normal",fontos:"🟡 Important",duma:"⚪ Bavardage",hint_keres:"Terme puis Entrée.",url_lbl:"Adresse",lang_lbl:"Langue",dball:"Total",dbhuman:"Humain",dbai:"IA",f1:"🔴 Critique",f2:"🟡 Important",f3:"🟢 Normal",f4:"⚪ Bavardage",be:"ON",ki:"OFF",srv_s:"🔌 Serveur",ai_s:"🤖 IA",db_s:"🗄 Base de données",h_export:"Export",h_import:"Import",help:"❓ Aide",h_title:"⬡ Memex Paim – Manuel",h_tagline:"L'IA oublie. La base de données se souvient.",h_free:"Tes données t'appartiennent. Memex n'envoie rien nulle part – tout reste sur ton appareil, selon tes règles. Pas d'abonnement, pas de cloud, pas de surveillance.",h_sec1:"À quoi ça sert?",h_p1:"Memex est une base de données personnelle + assistant IA. L'IA oublie tout après une conversation. Memex résout ça.",h_sec2:"Modes de chat",h_li1:"🗄 DB – L'IA cherche dans ta base de données.",h_li2:"🤖 IA – Répond depuis ses propres connaissances. Préfixe: @",h_li3:"⚡ Les deux – DB + IA combinés. Préfixe: &",h_sec3:"Entrée",h_p2:"Écris ce que tu veux retenir.",h_sec4:"Sauvegarde auto",h_p3:"Quand Memex est ON, chaque Q&R est sauvegardé automatiquement.",h_sec5:"Export / Import",h_p4:"Télécharge ta base de données chiffrée.",h_sec6:"Clé API",h_p5:"Entre ta clé API dans la section IA.",h_close:"✕ Fermer",h_ver:"Memex PAIM v0.3 · Mémoire IA personnelle · 2026"},
+  es:{sub:"Memoria IA personal",test:"Probar",save_key:"💾 Guardar",models:"📋 Modelos",auto_s:"💾 Guardado auto",look:"🎨 Apariencia",uuid_s:"🆔 UUID",fetch:"Obtener",chat:"Chat",entry:"Entrada",search:"Búsqueda",export_t:"Import/Export",welcome:"¡Hola! Elige un modo.\n🗄 DB – base de datos\n🤖 IA – solo IA\n⚡ Ambos – DB + IA",hint_db:"Busca DB",hint_ai:"Solo IA",hint_mix:"DB + IA",content:"Contenido",hooks:"Anclas",type_l:"Tipo",prio:"Prioridad",save:"💾 Guardar",pw:"Contraseña",file_l:"Archivo",exp_btn:"📦 Exportar",prev:"Exportaciones anteriores",upd:"Actualizar",same:"📥 Mismo dispositivo",newdev:"📱 Nuevo dispositivo",warn:"⚠ Copia automática.",all_opt:"Todos",testing:"Probando…",connected:"Conectado",err:"No disponible",searching:"Buscando…",no_result:"Sin resultados.",no_exp:"Sin exportaciones.",saved:"✓ ¡Guardado!",loading:"Cargando…",api_lbl:"Tipo de API",key_lbl:"Clave API",custom_lbl:"ID modelo personalizado",normal:"🟢 Normal",fontos:"🟡 Importante",duma:"⚪ Casual",hint_keres:"Escribe y pulsa Enter.",url_lbl:"Dirección",lang_lbl:"Idioma",dball:"Total",dbhuman:"Humano",dbai:"IA",f1:"🔴 Crítico",f2:"🟡 Importante",f3:"🟢 Normal",f4:"⚪ Casual",be:"ON",ki:"OFF",srv_s:"🔌 Servidor",ai_s:"🤖 IA",db_s:"🗄 Base de datos",h_export:"Export",h_import:"Import",help:"❓ Ayuda",h_title:"⬡ Memex Paim – Manual",h_tagline:"La IA olvida. La base de datos recuerda.",h_free:"Tus datos son tuyos. Memex no envía nada a ningún lado. Sin suscripción, sin nube, sin vigilancia.",h_sec1:"¿Para qué sirve?",h_p1:"Memex es una base de datos personal + asistente IA.",h_sec2:"Modos de chat",h_li1:"🗄 DB – La IA busca en tu base de datos.",h_li2:"🤖 IA – Solo conocimiento propio. Prefijo: @",h_li3:"⚡ Ambos – DB + IA. Prefijo: &",h_sec3:"Entrada",h_p2:"Escribe lo que quieres recordar.",h_sec4:"Guardado auto",h_p3:"Cuando Memex está ON, cada Q&R se guarda automáticamente.",h_sec5:"Export / Import",h_p4:"Descarga tu base de datos cifrada.",h_sec6:"Clave API",h_p5:"Introduce tu clave API en la sección IA.",h_close:"✕ Cerrar",h_ver:"Memex PAIM v0.3 · Memoria IA personal · 2026"},
+  // Rövidített beépített fordítások (UI gombok + help alap)
+  pt:{sub:"Memória IA pessoal",test:"Testar",save_key:"💾 Guardar",models:"📋 Modelos",auto_s:"💾 Salvar auto",look:"🎨 Aparência",uuid_s:"🆔 UUID",fetch:"Obter",chat:"Chat",entry:"Entrada",search:"Pesquisa",export_t:"Import/Export",welcome:"Olá! Escolhe um modo.\n🗄 DB – base de dados\n🤖 IA – só IA\n⚡ Ambos – DB + IA",hint_db:"Pesquisa DB",hint_ai:"Só IA",hint_mix:"DB + IA",content:"Conteúdo",hooks:"Âncoras",type_l:"Tipo",prio:"Prioridade",save:"💾 Guardar",pw:"Senha",file_l:"Ficheiro",exp_btn:"📦 Exportar",prev:"Exportações anteriores",upd:"Atualizar",same:"📥 Mesmo dispositivo",newdev:"📱 Novo dispositivo",warn:"⚠ Backup automático.",all_opt:"Todos",testing:"Testando…",connected:"Conectado",err:"Indisponível",searching:"Pesquisando…",no_result:"Sem resultados.",no_exp:"Sem exportações.",saved:"✓ Guardado!",loading:"Carregando…",api_lbl:"Tipo API",key_lbl:"Chave API",custom_lbl:"ID modelo personalizado",normal:"🟢 Normal",fontos:"🟡 Importante",duma:"⚪ Casual",hint_keres:"Escreva e pressione Enter.",url_lbl:"Endereço",lang_lbl:"Idioma",dball:"Total",dbhuman:"Humano",dbai:"IA",f1:"🔴 Crítico",f2:"🟡 Importante",f3:"🟢 Normal",f4:"⚪ Casual",be:"ON",ki:"OFF",srv_s:"🔌 Servidor",ai_s:"🤖 IA",db_s:"🗄 Base de dados",h_export:"Export",h_import:"Import",help:"❓ Ajuda",h_title:"⬡ Memex Paim – Manual",h_tagline:"A IA esquece. A base de dados lembra.",h_free:"Os teus dados são teus. Memex não envia nada para lado nenhum.",h_sec1:"Para que serve?",h_p1:"Memex é uma base de dados pessoal + assistente IA.",h_sec2:"Modos de chat",h_li1:"🗄 DB – A IA pesquisa na tua base de dados.",h_li2:"🤖 IA – Só conhecimento próprio. Prefixo: @",h_li3:"⚡ Ambos – DB + IA. Prefixo: &",h_sec3:"Entrada",h_p2:"Escreve o que queres lembrar.",h_sec4:"Salvar auto",h_p3:"Quando Memex está ON, cada Q&R é guardado automaticamente.",h_sec5:"Export / Import",h_p4:"Descarrega a tua base de dados encriptada.",h_sec6:"Chave API",h_p5:"Introduz a tua chave API na secção IA.",h_close:"✕ Fechar",h_ver:"Memex PAIM v0.3 · Memória IA pessoal · 2026"},
+  it:{sub:"Memoria IA personale",test:"Testa",save_key:"💾 Salva",models:"📋 Modelli",auto_s:"💾 Salvataggio auto",look:"🎨 Aspetto",uuid_s:"🆔 UUID",fetch:"Ottieni",chat:"Chat",entry:"Voce",search:"Cerca",export_t:"Import/Export",welcome:"Ciao! Scegli una modalità.\n🗄 DB – database\n🤖 IA – solo IA\n⚡ Entrambi – DB + IA",hint_db:"Cerca nel DB",hint_ai:"Solo IA",hint_mix:"DB + IA",content:"Contenuto",hooks:"Ancore",type_l:"Tipo",prio:"Priorità",save:"💾 Salva",pw:"Password",file_l:"File",exp_btn:"📦 Esporta",prev:"Export precedenti",upd:"Aggiorna",same:"📥 Stesso dispositivo",newdev:"📱 Nuovo dispositivo",warn:"⚠ Backup automatico.",all_opt:"Tutti",testing:"Test…",connected:"Connesso",err:"Non disponibile",searching:"Ricerca…",no_result:"Nessun risultato.",no_exp:"Nessun export.",saved:"✓ Salvato!",loading:"Caricamento…",api_lbl:"Tipo API",key_lbl:"Chiave API",custom_lbl:"ID modello personalizzato",normal:"🟢 Normale",fontos:"🟡 Importante",duma:"⚪ Chiacchiere",hint_keres:"Scrivi e premi Invio.",url_lbl:"Indirizzo",lang_lbl:"Lingua",dball:"Totale",dbhuman:"Umano",dbai:"IA",f1:"🔴 Critico",f2:"🟡 Importante",f3:"🟢 Normale",f4:"⚪ Chiacchiere",be:"ON",ki:"OFF",srv_s:"🔌 Server",ai_s:"🤖 IA",db_s:"🗄 Database",h_export:"Export",h_import:"Import",help:"❓ Aiuto",h_title:"⬡ Memex Paim – Manuale",h_tagline:"L'IA dimentica. Il database ricorda.",h_free:"I tuoi dati sono tuoi. Memex non invia niente da nessuna parte.",h_sec1:"A cosa serve?",h_p1:"Memex è un database personale + assistente IA.",h_sec2:"Modalità chat",h_li1:"🗄 DB – L'IA cerca nel tuo database.",h_li2:"🤖 IA – Solo conoscenza propria. Prefisso: @",h_li3:"⚡ Entrambi – DB + IA. Prefisso: &",h_sec3:"Voce",h_p2:"Scrivi cosa vuoi ricordare.",h_sec4:"Salvataggio auto",h_p3:"Con Memex ON, ogni Q&R viene salvato automaticamente.",h_sec5:"Export / Import",h_p4:"Scarica il tuo database cifrato.",h_sec6:"Chiave API",h_p5:"Inserisci la tua chiave API nella sezione IA.",h_close:"✕ Chiudi",h_ver:"Memex PAIM v0.3 · Memoria IA personale · 2026"},
+  nl:{sub:"Persoonlijk AI-geheugen",test:"Test",save_key:"💾 Opslaan",models:"📋 Modellen",auto_s:"💾 Automatisch opslaan",look:"🎨 Weergave",uuid_s:"🆔 UUID",fetch:"Ophalen",chat:"Chat",entry:"Invoer",search:"Zoeken",export_t:"Import/Export",welcome:"Hoi! Kies een modus.\n🗄 DB – database\n🤖 AI – alleen AI\n⚡ Beide – DB + AI",hint_db:"Doorzoekt DB",hint_ai:"Alleen AI",hint_mix:"DB + AI",content:"Inhoud",hooks:"Ankers",type_l:"Type",prio:"Prioriteit",save:"💾 Opslaan",pw:"Wachtwoord",file_l:"Bestand",exp_btn:"📦 Exporteren",prev:"Vorige exports",upd:"Vernieuwen",same:"📥 Hetzelfde apparaat",newdev:"📱 Nieuw apparaat",warn:"⚠ Back-up automatisch.",all_opt:"Alle",testing:"Testen…",connected:"Verbonden",err:"Niet beschikbaar",searching:"Zoeken…",no_result:"Geen resultaten.",no_exp:"Nog geen exports.",saved:"✓ Opgeslagen!",loading:"Laden…",api_lbl:"API-type",key_lbl:"API-sleutel",custom_lbl:"Aangepast model-ID",normal:"🟢 Normaal",fontos:"🟡 Belangrijk",duma:"⚪ Gebabbel",hint_keres:"Typ en druk op Enter.",url_lbl:"Adres",lang_lbl:"Taal",dball:"Totaal",dbhuman:"Mens",dbai:"AI",f1:"🔴 Kritiek",f2:"🟡 Belangrijk",f3:"🟢 Normaal",f4:"⚪ Gebabbel",be:"AAN",ki:"UIT",srv_s:"🔌 Server",ai_s:"🤖 AI",db_s:"🗄 Database",h_export:"Export",h_import:"Import",help:"❓ Help",h_title:"⬡ Memex Paim – Handleiding",h_tagline:"AI vergeet. De database herinnert.",h_free:"Jouw gegevens zijn van jou. Memex stuurt niets nergens naartoe.",h_sec1:"Waarvoor?",h_p1:"Memex is een persoonlijke database + AI-assistent.",h_sec2:"Chatmodi",h_li1:"🗄 DB – AI zoekt in jouw database.",h_li2:"🤖 AI – Alleen eigen kennis. Voorvoegsel: @",h_li3:"⚡ Beide – DB + AI. Voorvoegsel: &",h_sec3:"Invoer",h_p2:"Schrijf wat je wilt onthouden.",h_sec4:"Automatisch opslaan",h_p3:"Met Memex AAN wordt elk Q&A automatisch opgeslagen.",h_sec5:"Export / Import",h_p4:"Download je versleutelde database.",h_sec6:"API-sleutel",h_p5:"Voer je API-sleutel in de AI-sectie in.",h_close:"✕ Sluiten",h_ver:"Memex PAIM v0.3 · Persoonlijk AI-geheugen · 2026"},
+  pl:{sub:"Osobista pamięć AI",test:"Testuj",save_key:"💾 Zapisz",models:"📋 Modele",auto_s:"💾 Auto-zapis",look:"🎨 Wygląd",uuid_s:"🆔 UUID",fetch:"Pobierz",chat:"Czat",entry:"Wpis",search:"Szukaj",export_t:"Import/Export",welcome:"Cześć! Wybierz tryb.\n🗄 DB – baza danych\n🤖 AI – tylko AI\n⚡ Oba – DB + AI",hint_db:"Szuka w DB",hint_ai:"Tylko AI",hint_mix:"DB + AI",content:"Treść",hooks:"Kotwy",type_l:"Typ",prio:"Priorytet",save:"💾 Zapisz",pw:"Hasło",file_l:"Plik",exp_btn:"📦 Eksportuj",prev:"Poprzednie eksporty",upd:"Odśwież",same:"📥 To samo urządzenie",newdev:"📱 Nowe urządzenie",warn:"⚠ Kopia zapasowa automatyczna.",all_opt:"Wszystkie",testing:"Testowanie…",connected:"Połączono",err:"Niedostępny",searching:"Szukam…",no_result:"Brak wyników.",no_exp:"Brak eksportów.",saved:"✓ Zapisano!",loading:"Ładowanie…",api_lbl:"Typ API",key_lbl:"Klucz API",custom_lbl:"Własny ID modelu",normal:"🟢 Normalne",fontos:"🟡 Ważne",duma:"⚪ Pogaduszki",hint_keres:"Wpisz i naciśnij Enter.",url_lbl:"Adres",lang_lbl:"Język",dball:"Razem",dbhuman:"Człowiek",dbai:"AI",f1:"🔴 Krytyczne",f2:"🟡 Ważne",f3:"🟢 Normalne",f4:"⚪ Pogaduszki",be:"WŁ",ki:"WYŁ",srv_s:"🔌 Serwer",ai_s:"🤖 AI",db_s:"🗄 Baza danych",h_export:"Eksport",h_import:"Import",help:"❓ Pomoc",h_title:"⬡ Memex Paim – Podręcznik",h_tagline:"AI zapomina. Baza danych pamięta.",h_free:"Twoje dane należą do Ciebie. Memex nic nigdzie nie wysyła.",h_sec1:"Do czego służy?",h_p1:"Memex to osobista baza danych + asystent AI.",h_sec2:"Tryby czatu",h_li1:"🗄 DB – AI przeszukuje Twoją bazę danych.",h_li2:"🤖 AI – Tylko własna wiedza. Prefiks: @",h_li3:"⚡ Oba – DB + AI. Prefiks: &",h_sec3:"Wpis",h_p2:"Napisz, co chcesz zapamiętać.",h_sec4:"Auto-zapis",h_p3:"Gdy Memex jest WŁ, każde Q&A jest automatycznie zapisywane.",h_sec5:"Eksport / Import",h_p4:"Pobierz zaszyfrowaną bazę danych.",h_sec6:"Klucz API",h_p5:"Wprowadź klucz API w sekcji AI.",h_close:"✕ Zamknij",h_ver:"Memex PAIM v0.3 · Osobista pamięć AI · 2026"},
+  ru:{sub:"Личная память ИИ",test:"Тест",save_key:"💾 Сохранить",models:"📋 Модели",auto_s:"💾 Авто-сохранение",look:"🎨 Внешний вид",uuid_s:"🆔 UUID",fetch:"Получить",chat:"Чат",entry:"Запись",search:"Поиск",export_t:"Import/Export",welcome:"Привет! Выбери режим.\n🗄 БД – из базы\n🤖 ИИ – только ИИ\n⚡ Оба – БД + ИИ",hint_db:"Ищет в БД",hint_ai:"Только ИИ",hint_mix:"БД + ИИ",content:"Содержание",hooks:"Якоря",type_l:"Тип",prio:"Приоритет",save:"💾 Сохранить",pw:"Пароль",file_l:"Файл",exp_btn:"📦 Экспорт",prev:"Прошлые экспорты",upd:"Обновить",same:"📥 То же устройство",newdev:"📱 Новое устройство",warn:"⚠ Резервная копия авт.",all_opt:"Все",testing:"Тестирование…",connected:"Подключено",err:"Недоступно",searching:"Поиск…",no_result:"Нет результатов.",no_exp:"Нет экспортов.",saved:"✓ Сохранено!",loading:"Загрузка…",api_lbl:"Тип API",key_lbl:"Ключ API",custom_lbl:"Свой ID модели",normal:"🟢 Обычное",fontos:"🟡 Важное",duma:"⚪ Болтовня",hint_keres:"Введите и нажмите Enter.",url_lbl:"Адрес",lang_lbl:"Язык",dball:"Всего",dbhuman:"Человек",dbai:"ИИ",f1:"🔴 Критично",f2:"🟡 Важно",f3:"🟢 Обычно",f4:"⚪ Болтовня",be:"ВКЛ",ki:"ВЫКЛ",srv_s:"🔌 Сервер",ai_s:"🤖 ИИ",db_s:"🗄 База данных",h_export:"Экспорт",h_import:"Импорт",help:"❓ Помощь",h_title:"⬡ Memex Paim – Руководство",h_tagline:"ИИ забывает. База данных помнит.",h_free:"Твои данные — твои. Memex ничего никуда не отправляет.",h_sec1:"Для чего?",h_p1:"Memex — личная база данных + ИИ-ассистент.",h_sec2:"Режимы чата",h_li1:"🗄 БД – ИИ ищет в твоей базе.",h_li2:"🤖 ИИ – Только свои знания. Префикс: @",h_li3:"⚡ Оба – БД + ИИ. Префикс: &",h_sec3:"Запись",h_p2:"Запиши, что хочешь запомнить.",h_sec4:"Авто-сохранение",h_p3:"Когда Memex ВКЛ, каждый вопрос-ответ сохраняется.",h_sec5:"Экспорт / Импорт",h_p4:"Скачай зашифрованную базу данных.",h_sec6:"Ключ API",h_p5:"Введи API-ключ в разделе ИИ.",h_close:"✕ Закрыть",h_ver:"Memex PAIM v0.3 · Личная память ИИ · 2026"},
+  uk:{sub:"Особиста пам'ять ШІ",test:"Тест",save_key:"💾 Зберегти",models:"📋 Моделі",auto_s:"💾 Авто-збереження",look:"🎨 Вигляд",uuid_s:"🆔 UUID",fetch:"Отримати",chat:"Чат",entry:"Запис",search:"Пошук",export_t:"Import/Export",welcome:"Привіт! Вибери режим.\n🗄 БД – з бази\n🤖 ШІ – тільки ШІ\n⚡ Обидва – БД + ШІ",hint_db:"Шукає в БД",hint_ai:"Тільки ШІ",hint_mix:"БД + ШІ",content:"Вміст",hooks:"Якорі",type_l:"Тип",prio:"Пріоритет",save:"💾 Зберегти",pw:"Пароль",file_l:"Файл",exp_btn:"📦 Експорт",prev:"Попередні експорти",upd:"Оновити",same:"📥 Той самий пристрій",newdev:"📱 Новий пристрій",warn:"⚠ Резервна копія авт.",all_opt:"Всі",testing:"Тестування…",connected:"Підключено",err:"Недоступно",searching:"Пошук…",no_result:"Немає результатів.",no_exp:"Немає експортів.",saved:"✓ Збережено!",loading:"Завантаження…",api_lbl:"Тип API",key_lbl:"Ключ API",custom_lbl:"Власний ID моделі",normal:"🟢 Звичайне",fontos:"🟡 Важливе",duma:"⚪ Балаканина",hint_keres:"Введіть і натисніть Enter.",url_lbl:"Адреса",lang_lbl:"Мова",dball:"Всього",dbhuman:"Людина",dbai:"ШІ",f1:"🔴 Критично",f2:"🟡 Важливо",f3:"🟢 Звичайно",f4:"⚪ Балаканина",be:"УВМ",ki:"ВИМК",srv_s:"🔌 Сервер",ai_s:"🤖 ШІ",db_s:"🗄 База даних",h_export:"Експорт",h_import:"Імпорт",help:"❓ Допомога",h_title:"⬡ Memex Paim – Посібник",h_tagline:"ШІ забуває. База даних пам'ятає.",h_free:"Твої дані — твої. Memex нічого нікуди не надсилає.",h_sec1:"Для чого?",h_p1:"Memex — особиста база даних + ШІ-асистент.",h_sec2:"Режими чату",h_li1:"🗄 БД – ШІ шукає у твоїй базі.",h_li2:"🤖 ШІ – Тільки власні знання. Префікс: @",h_li3:"⚡ Обидва – БД + ШІ. Префікс: &",h_sec3:"Запис",h_p2:"Запиши, що хочеш запам'ятати.",h_sec4:"Авто-збереження",h_p3:"Коли Memex УВМ, кожне питання-відповідь зберігається.",h_sec5:"Експорт / Імпорт",h_p4:"Завантаж зашифровану базу даних.",h_sec6:"Ключ API",h_p5:"Введи API-ключ у розділі ШІ.",h_close:"✕ Закрити",h_ver:"Memex PAIM v0.3 · Особиста пам'ять ШІ · 2026"},
+  ro:{sub:"Memorie IA personală",test:"Testează",save_key:"💾 Salvează",models:"📋 Modele",auto_s:"💾 Salvare auto",look:"🎨 Aspect",uuid_s:"🆔 UUID",fetch:"Obține",chat:"Chat",entry:"Intrare",search:"Căutare",export_t:"Import/Export",welcome:"Bună! Alege un mod.\n🗄 DB – bază de date\n🤖 IA – doar IA\n⚡ Ambele – DB + IA",hint_db:"Caută în DB",hint_ai:"Doar IA",hint_mix:"DB + IA",content:"Conținut",hooks:"Ancore",type_l:"Tip",prio:"Prioritate",save:"💾 Salvează",pw:"Parolă",file_l:"Fișier",exp_btn:"📦 Exportă",prev:"Exporturi anterioare",upd:"Actualizează",same:"📥 Același dispozitiv",newdev:"📱 Dispozitiv nou",warn:"⚠ Backup automat.",all_opt:"Toate",testing:"Testare…",connected:"Conectat",err:"Indisponibil",searching:"Căutare…",no_result:"Niciun rezultat.",no_exp:"Fără exporturi.",saved:"✓ Salvat!",loading:"Încărcare…",api_lbl:"Tip API",key_lbl:"Cheie API",custom_lbl:"ID model personalizat",normal:"🟢 Normal",fontos:"🟡 Important",duma:"⚪ Flecăreală",hint_keres:"Scrie și apasă Enter.",url_lbl:"Adresă",lang_lbl:"Limbă",dball:"Total",dbhuman:"Om",dbai:"IA",f1:"🔴 Critic",f2:"🟡 Important",f3:"🟢 Normal",f4:"⚪ Flecăreală",be:"ON",ki:"OFF",srv_s:"🔌 Server",ai_s:"🤖 IA",db_s:"🗄 Bază de date",h_export:"Export",h_import:"Import",help:"❓ Ajutor",h_title:"⬡ Memex Paim – Manual",h_tagline:"IA uită. Baza de date își amintește.",h_free:"Datele tale sunt ale tale. Memex nu trimite nimic nicăieri.",h_sec1:"La ce servește?",h_p1:"Memex este o bază de date personală + asistent IA.",h_sec2:"Moduri chat",h_li1:"🗄 DB – IA caută în baza ta.",h_li2:"🤖 IA – Doar cunoștințe proprii. Prefix: @",h_li3:"⚡ Ambele – DB + IA. Prefix: &",h_sec3:"Intrare",h_p2:"Scrie ce vrei să reții.",h_sec4:"Salvare auto",h_p3:"Când Memex e ON, fiecare Q&R e salvat automat.",h_sec5:"Export / Import",h_p4:"Descarcă baza de date criptată.",h_sec6:"Cheie API",h_p5:"Introdu cheia API în secțiunea IA.",h_close:"✕ Închide",h_ver:"Memex PAIM v0.3 · Memorie IA personală · 2026"},
+  cs:{sub:"Osobní paměť AI",test:"Testovat",save_key:"💾 Uložit",models:"📋 Modely",auto_s:"💾 Automatické ukládání",look:"🎨 Vzhled",uuid_s:"🆔 UUID",fetch:"Načíst",chat:"Chat",entry:"Záznam",search:"Hledat",export_t:"Import/Export",welcome:"Ahoj! Zvol režim.\n🗄 DB – databáze\n🤖 AI – jen AI\n⚡ Obě – DB + AI",hint_db:"Hledá v DB",hint_ai:"Jen AI",hint_mix:"DB + AI",content:"Obsah",hooks:"Kotvy",type_l:"Typ",prio:"Priorita",save:"💾 Uložit",pw:"Heslo",file_l:"Soubor",exp_btn:"📦 Exportovat",prev:"Předchozí exporty",upd:"Obnovit",same:"📥 Stejné zařízení",newdev:"📱 Nové zařízení",warn:"⚠ Záloha automatická.",all_opt:"Vše",testing:"Testování…",connected:"Připojeno",err:"Nedostupné",searching:"Hledám…",no_result:"Žádné výsledky.",no_exp:"Žádné exporty.",saved:"✓ Uloženo!",loading:"Načítání…",api_lbl:"Typ API",key_lbl:"Klíč API",custom_lbl:"Vlastní ID modelu",normal:"🟢 Normální",fontos:"🟡 Důležité",duma:"⚪ Tlachání",hint_keres:"Napište a stiskněte Enter.",url_lbl:"Adresa",lang_lbl:"Jazyk",dball:"Celkem",dbhuman:"Člověk",dbai:"AI",f1:"🔴 Kritické",f2:"🟡 Důležité",f3:"🟢 Normální",f4:"⚪ Tlachání",be:"ZAP",ki:"VYP",srv_s:"🔌 Server",ai_s:"🤖 AI",db_s:"🗄 Databáze",h_export:"Export",h_import:"Import",help:"❓ Nápověda",h_title:"⬡ Memex Paim – Příručka",h_tagline:"AI zapomíná. Databáze si pamatuje.",h_free:"Tvá data jsou tvá. Memex nic nikam neposílá.",h_sec1:"K čemu to je?",h_p1:"Memex je osobní databáze + AI asistent.",h_sec2:"Režimy chatu",h_li1:"🗄 DB – AI hledá v tvé databázi.",h_li2:"🤖 AI – Jen vlastní znalosti. Prefix: @",h_li3:"⚡ Obě – DB + AI. Prefix: &",h_sec3:"Záznam",h_p2:"Napiš, co chceš zapamatovat.",h_sec4:"Automatické ukládání",h_p3:"Když je Memex ZAP, každý Q&A se uloží automaticky.",h_sec5:"Export / Import",h_p4:"Stáhni zašifrovanou databázi.",h_sec6:"Klíč API",h_p5:"Zadej API klíč v sekci AI.",h_close:"✕ Zavřít",h_ver:"Memex PAIM v0.3 · Osobní paměť AI · 2026"},
+  sv:{sub:"Personligt AI-minne",test:"Testa",save_key:"💾 Spara",models:"📋 Modeller",auto_s:"💾 Automatisk sparning",look:"🎨 Utseende",uuid_s:"🆔 UUID",fetch:"Hämta",chat:"Chatt",entry:"Post",search:"Sök",export_t:"Import/Export",welcome:"Hej! Välj ett läge.\n🗄 DB – databas\n🤖 AI – bara AI\n⚡ Båda – DB + AI",hint_db:"Söker i DB",hint_ai:"Bara AI",hint_mix:"DB + AI",content:"Innehåll",hooks:"Ankare",type_l:"Typ",prio:"Prioritet",save:"💾 Spara",pw:"Lösenord",file_l:"Fil",exp_btn:"📦 Exportera",prev:"Tidigare exporter",upd:"Uppdatera",same:"📥 Samma enhet",newdev:"📱 Ny enhet",warn:"⚠ Backup automatisk.",all_opt:"Alla",testing:"Testar…",connected:"Ansluten",err:"Ej tillgänglig",searching:"Söker…",no_result:"Inga resultat.",no_exp:"Inga exporter.",saved:"✓ Sparat!",loading:"Laddar…",api_lbl:"API-typ",key_lbl:"API-nyckel",custom_lbl:"Anpassat modell-ID",normal:"🟢 Normal",fontos:"🟡 Viktigt",duma:"⚪ Småprat",hint_keres:"Skriv och tryck Enter.",url_lbl:"Adress",lang_lbl:"Språk",dball:"Totalt",dbhuman:"Människa",dbai:"AI",f1:"🔴 Kritisk",f2:"🟡 Viktig",f3:"🟢 Normal",f4:"⚪ Småprat",be:"PÅ",ki:"AV",srv_s:"🔌 Server",ai_s:"🤖 AI",db_s:"🗄 Databas",h_export:"Export",h_import:"Import",help:"❓ Hjälp",h_title:"⬡ Memex Paim – Handbok",h_tagline:"AI glömmer. Databasen minns.",h_free:"Din data är din. Memex skickar ingenting någonstans.",h_sec1:"Vad är det till för?",h_p1:"Memex är en personlig databas + AI-assistent.",h_sec2:"Chattlägen",h_li1:"🗄 DB – AI söker i din databas.",h_li2:"🤖 AI – Bara egna kunskaper. Prefix: @",h_li3:"⚡ Båda – DB + AI. Prefix: &",h_sec3:"Post",h_p2:"Skriv vad du vill komma ihåg.",h_sec4:"Automatisk sparning",h_p3:"När Memex är PÅ sparas varje Q&A automatiskt.",h_sec5:"Export / Import",h_p4:"Ladda ner din krypterade databas.",h_sec6:"API-nyckel",h_p5:"Ange API-nyckeln i AI-avsnittet.",h_close:"✕ Stäng",h_ver:"Memex PAIM v0.3 · Personligt AI-minne · 2026"},
+  tr:{sub:"Kişisel AI belleği",test:"Test",save_key:"💾 Kaydet",models:"↻ Yenile",auto_s:"💾 Otomatik kayıt",look:"🎨 Görünüm",uuid_s:"🆔 UUID",fetch:"Al",chat:"Sohbet",entry:"Kayıt",search:"Arama",export_t:"Import/Export",welcome:"Merhaba! Bir mod seç.\n🗄 DB – veritabanı\n🤖 AI – sadece AI\n⚡ İkisi – DB + AI",hint_db:"DB'de arar",hint_ai:"Sadece AI",hint_mix:"DB + AI",content:"İçerik",hooks:"Çapalar",type_l:"Tür",prio:"Öncelik",save:"💾 Kaydet",pw:"Şifre",file_l:"Dosya",exp_btn:"📦 Dışa aktar",prev:"Önceki dışa aktarımlar",upd:"Yenile",same:"📥 Aynı cihaz",newdev:"📱 Yeni cihaz",warn:"⚠ Yedekleme otomatik.",all_opt:"Tümü",testing:"Test ediliyor…",connected:"Bağlandı",err:"Erişilemiyor",searching:"Aranıyor…",no_result:"Sonuç yok.",no_exp:"Dışa aktarım yok.",saved:"✓ Kaydedildi!",loading:"Yükleniyor…",api_lbl:"API türü",key_lbl:"API anahtarı",custom_lbl:"Özel model ID",normal:"🟢 Normal",fontos:"🟡 Önemli",duma:"⚪ Gevezelik",hint_keres:"Yazın ve Enter'a basın.",url_lbl:"Adres",lang_lbl:"Dil",dball:"Toplam",dbhuman:"İnsan",dbai:"AI",f1:"🔴 Kritik",f2:"🟡 Önemli",f3:"🟢 Normal",f4:"⚪ Gevezelik",be:"AÇIK",ki:"KAPALI",srv_s:"🔌 Sunucu",ai_s:"🤖 AI",db_s:"🗄 Veritabanı",h_export:"Dışa aktarım",h_import:"İçe aktarım",help:"❓ Yardım",h_title:"⬡ Memex Paim – Kılavuz",h_tagline:"AI unutur. Veritabanı hatırlar.",h_free:"Verileriniz size ait. Memex hiçbir şeyi hiçbir yere göndermez.",h_sec1:"Ne işe yarar?",h_p1:"Memex kişisel bir veritabanı + AI asistanıdır.",h_sec2:"Sohbet modları",h_li1:"🗄 DB – AI veritabanınızda arar.",h_li2:"🤖 AI – Sadece kendi bilgisi. Önek: @",h_li3:"⚡ İkisi – DB + AI. Önek: &",h_sec3:"Kayıt",h_p2:"Hatırlamak istediklerinizi yazın.",h_sec4:"Otomatik kayıt",h_p3:"Memex AÇIK olduğunda her Q&A otomatik kaydedilir.",h_sec5:"Dışa / İçe aktarım",h_p4:"Şifreli veritabanınızı indirin.",h_sec6:"API anahtarı",h_p5:"AI bölümünde API anahtarınızı girin.",h_close:"✕ Kapat",h_ver:"Memex PAIM v0.3 · Kişisel AI belleği · 2026"},
+  bn:{sub:"ব্যক্তিগত AI স্মৃতি",test:"পরীক্ষা",save_key:"💾 সংরক্ষণ",models:"↻ রিফ্রেশ",auto_s:"💾 স্বয়ংক্রিয় সংরক্ষণ",look:"🎨 চেহারা",uuid_s:"🆔 UUID",fetch:"আনুন",chat:"চ্যাট",entry:"প্রবিষ্টি",search:"অনুসন্ধান",export_t:"Import/Export",welcome:"হ্যালো! একটি মোড বেছে নিন।\n🗄 DB – ডেটাবেস\n🤖 AI – শুধু AI\n⚡ উভয় – DB + AI",hint_db:"DB খোঁজে",hint_ai:"শুধু AI",hint_mix:"DB + AI",content:"বিষয়বস্তু",hooks:"নোঙর",type_l:"ধরন",prio:"অগ্রাধিকার",save:"💾 সংরক্ষণ",pw:"পাসওয়ার্ড",file_l:"ফাইল",exp_btn:"📦 রপ্তানি",prev:"আগের রপ্তানি",upd:"আপডেট",same:"📥 একই ডিভাইস",newdev:"📱 নতুন ডিভাইস",warn:"⚠ স্বয়ংক্রিয় ব্যাকআপ।",all_opt:"সব",testing:"পরীক্ষা করছে…",connected:"সংযুক্ত",err:"অনুপলব্ধ",searching:"খোঁজা হচ্ছে…",no_result:"কোনো ফলাফল নেই।",no_exp:"কোনো রপ্তানি নেই।",saved:"✓ সংরক্ষিত!",loading:"লোড হচ্ছে…",api_lbl:"API ধরন",key_lbl:"API কী",custom_lbl:"কাস্টম মডেল ID",normal:"🟢 সাধারণ",fontos:"🟡 গুরুত্বপূর্ণ",duma:"⚪ আলাপ",hint_keres:"টাইপ করুন এবং Enter চাপুন।",url_lbl:"ঠিকানা",lang_lbl:"ভাষা",dball:"মোট",dbhuman:"মানুষ",dbai:"AI",f1:"🔴 জরুরি",f2:"🟡 গুরুত্বপূর্ণ",f3:"🟢 সাধারণ",f4:"⚪ আলাপ",be:"চালু",ki:"বন্ধ",srv_s:"🔌 সার্ভার",ai_s:"🤖 AI",db_s:"🗄 ডেটাবেস",h_export:"রপ্তানি",h_import:"আমদানি",help:"❓ সাহায্য",h_title:"⬡ Memex Paim – ম্যানুয়াল",h_tagline:"AI ভুলে যায়। ডেটাবেস মনে রাখে।",h_free:"আপনার ডেটা আপনার। Memex কোথাও কিছু পাঠায় না।",h_sec1:"এটি কীসের জন্য?",h_p1:"Memex একটি ব্যক্তিগত ডেটাবেস + AI সহকারী।",h_sec2:"চ্যাট মোড",h_li1:"🗄 DB – AI আপনার ডেটাবেসে খোঁজে।",h_li2:"🤖 AI – শুধু নিজস্ব জ্ঞান। প্রিফিক্স: @",h_li3:"⚡ উভয় – DB + AI। প্রিফিক্স: &",h_sec3:"প্রবিষ্টি",h_p2:"আপনি যা মনে রাখতে চান তা লিখুন।",h_sec4:"স্বয়ংক্রিয় সংরক্ষণ",h_p3:"Memex চালু থাকলে প্রতিটি Q&A স্বয়ংক্রিয়ভাবে সংরক্ষিত হয়।",h_sec5:"রপ্তানি / আমদানি",h_p4:"এনক্রিপ্টেড ডেটাবেস ডাউনলোড করুন।",h_sec6:"API কী",h_p5:"AI বিভাগে API কী লিখুন।",h_close:"✕ বন্ধ",h_ver:"Memex PAIM v0.3 · ব্যক্তিগত AI স্মৃতি · 2026"},
+  ar:{sub:"ذاكرة الذكاء الاصطناعي الشخصية",test:"اختبار",save_key:"💾 حفظ",models:"↻ تحديث",auto_s:"💾 حفظ تلقائي",look:"🎨 المظهر",uuid_s:"🆔 UUID",fetch:"جلب",chat:"دردشة",entry:"إدخال",search:"بحث",export_t:"Import/Export",welcome:"مرحباً! اختر وضعاً.\n🗄 DB – قاعدة البيانات\n🤖 AI – الذكاء الاصطناعي فقط\n⚡ الكل – DB + AI",hint_db:"يبحث في DB",hint_ai:"الذكاء الاصطناعي فقط",hint_mix:"DB + AI",content:"المحتوى",hooks:"المراسي",type_l:"النوع",prio:"الأولوية",save:"💾 حفظ",pw:"كلمة المرور",file_l:"ملف",exp_btn:"📦 تصدير",prev:"التصديرات السابقة",upd:"تحديث",same:"📥 نفس الجهاز",newdev:"📱 جهاز جديد",warn:"⚠ النسخ الاحتياطي تلقائي.",all_opt:"الكل",testing:"جاري الاختبار…",connected:"متصل",err:"غير متاح",searching:"جاري البحث…",no_result:"لا توجد نتائج.",no_exp:"لا يوجد تصدير بعد.",saved:"✓ تم الحفظ!",loading:"جاري التحميل…",api_lbl:"نوع API",key_lbl:"مفتاح API",custom_lbl:"معرف النموذج المخصص",normal:"🟢 عادي",fontos:"🟡 مهم",duma:"⚪ دردشة",hint_keres:"اكتب واضغط Enter.",url_lbl:"العنوان",lang_lbl:"اللغة",dball:"الكل",dbhuman:"إنسان",dbai:"AI",f1:"🔴 حرج",f2:"🟡 مهم",f3:"🟢 عادي",f4:"⚪ دردشة",be:"تشغيل",ki:"إيقاف",srv_s:"🔌 الخادم",ai_s:"🤖 AI",db_s:"🗄 قاعدة البيانات",h_export:"تصدير",h_import:"استيراد",help:"❓ مساعدة",h_title:"⬡ Memex Paim – الدليل",h_tagline:"الذكاء الاصطناعي ينسى. قاعدة البيانات تتذكر.",h_free:"بياناتك ملكك. Memex لا يرسل أي شيء إلى أي مكان.",h_sec1:"ما الغرض منه؟",h_p1:"Memex هو قاعدة بيانات شخصية + مساعد ذكاء اصطناعي.",h_sec2:"أوضاع الدردشة",h_li1:"🗄 DB – يبحث الذكاء الاصطناعي في قاعدة بياناتك.",h_li2:"🤖 AI – المعرفة الخاصة فقط. البادئة: @",h_li3:"⚡ الكل – DB + AI. البادئة: &",h_sec3:"إدخال",h_p2:"اكتب ما تريد تذكره.",h_sec4:"الحفظ التلقائي",h_p3:"عندما يكون Memex تشغيل، يُحفظ كل سؤال وجواب تلقائياً.",h_sec5:"تصدير / استيراد",h_p4:"حمّل قاعدة بياناتك مشفرة.",h_sec6:"مفتاح API",h_p5:"أدخل مفتاح API في قسم AI.",h_close:"✕ إغلاق",h_ver:"Memex PAIM v0.3 · ذاكرة AI شخصية · 2026"},
+  zh:{sub:"个人AI记忆",test:"测试",save_key:"💾 保存",models:"↻ 刷新",auto_s:"💾 自动保存",look:"🎨 外观",uuid_s:"🆔 UUID",fetch:"获取",chat:"聊天",entry:"记录",search:"搜索",export_t:"Import/Export",welcome:"你好！选择模式。\n🗄 DB – 数据库\n🤖 AI – 仅AI\n⚡ 全部 – DB + AI",hint_db:"搜索数据库",hint_ai:"仅AI",hint_mix:"DB + AI",content:"内容",hooks:"锚点",type_l:"类型",prio:"优先级",save:"💾 保存",pw:"密码",file_l:"文件",exp_btn:"📦 导出",prev:"之前的导出",upd:"刷新",same:"📥 同一设备",newdev:"📱 新设备",warn:"⚠ 自动备份。",all_opt:"全部",testing:"测试中…",connected:"已连接",err:"不可用",searching:"搜索中…",no_result:"没有结果。",no_exp:"暂无导出。",saved:"✓ 已保存！",loading:"加载中…",api_lbl:"API类型",key_lbl:"API密钥",custom_lbl:"自定义模型ID",normal:"🟢 普通",fontos:"🟡 重要",duma:"⚪ 闲聊",hint_keres:"输入后按Enter。",url_lbl:"地址",lang_lbl:"语言",dball:"全部",dbhuman:"人类",dbai:"AI",f1:"🔴 紧急",f2:"🟡 重要",f3:"🟢 普通",f4:"⚪ 闲聊",be:"开",ki:"关",srv_s:"🔌 服务器",ai_s:"🤖 AI",db_s:"🗄 数据库",h_export:"导出",h_import:"导入",help:"❓ 帮助",h_title:"⬡ Memex Paim – 手册",h_tagline:"AI会忘记。数据库会记住。",h_free:"你的数据属于你。Memex不会发送任何内容。",h_sec1:"有什么用？",h_p1:"Memex是个人数据库+AI助手。",h_sec2:"聊天模式",h_li1:"🗄 DB – AI在你的数据库中搜索。",h_li2:"🤖 AI – 仅使用自身知识。前缀：@",h_li3:"⚡ 全部 – DB + AI。前缀：&",h_sec3:"记录",h_p2:"写下你想记住的内容。",h_sec4:"自动保存",h_p3:"当Memex开启时，每次问答自动保存。",h_sec5:"导出 / 导入",h_p4:"下载加密的数据库。",h_sec6:"API密钥",h_p5:"在AI部分输入API密钥。",h_close:"✕ 关闭",h_ver:"Memex PAIM v0.3 · 个人AI记忆 · 2026"},
+  el:{sub:"Προσωπική μνήμη AI",test:"Δοκιμή",save_key:"💾 Αποθήκευση",models:"↻ Ανανέωση",auto_s:"💾 Αυτόματη αποθ.",look:"🎨 Εμφάνιση",uuid_s:"🆔 UUID",fetch:"Λήψη",chat:"Συνομιλία",entry:"Καταχώριση",search:"Αναζήτηση",export_t:"Import/Export",welcome:"Γεια! Επίλεξε λειτουργία.\n🗄 DB – βάση δεδομένων\n🤖 AI – μόνο AI\n⚡ Και τα δύο – DB + AI",hint_db:"Αναζητά στη DB",hint_ai:"Μόνο AI",hint_mix:"DB + AI",content:"Περιεχόμενο",hooks:"Άγκυρες",type_l:"Τύπος",prio:"Προτεραιότητα",save:"💾 Αποθήκευση",pw:"Κωδικός",file_l:"Αρχείο",exp_btn:"📦 Εξαγωγή",prev:"Προηγούμενες εξαγωγές",upd:"Ανανέωση",same:"📥 Ίδια συσκευή",newdev:"📱 Νέα συσκευή",warn:"⚠ Αυτόματο αντίγραφο.",all_opt:"Όλα",testing:"Δοκιμή…",connected:"Συνδεδεμένο",err:"Μη διαθέσιμο",searching:"Αναζήτηση…",no_result:"Δεν βρέθηκαν αποτελέσματα.",no_exp:"Δεν υπάρχουν εξαγωγές.",saved:"✓ Αποθηκεύτηκε!",loading:"Φόρτωση…",api_lbl:"Τύπος API",key_lbl:"Κλειδί API",custom_lbl:"Προσαρμοσμένο ID μοντέλου",normal:"🟢 Κανονικό",fontos:"🟡 Σημαντικό",duma:"⚪ Κουβέντα",hint_keres:"Γράψε και πάτησε Enter.",url_lbl:"Διεύθυνση",lang_lbl:"Γλώσσα",dball:"Σύνολο",dbhuman:"Άνθρωπος",dbai:"AI",f1:"🔴 Κρίσιμο",f2:"🟡 Σημαντικό",f3:"🟢 Κανονικό",f4:"⚪ Κουβέντα",be:"ΕΝΕ",ki:"ΑΠΟ",srv_s:"🔌 Διακομιστής",ai_s:"🤖 AI",db_s:"🗄 Βάση δεδομένων",h_export:"Εξαγωγή",h_import:"Εισαγωγή",help:"❓ Βοήθεια",h_title:"⬡ Memex Paim – Εγχειρίδιο",h_tagline:"Το AI ξεχνά. Η βάση δεδομένων θυμάται.",h_free:"Τα δεδομένα σου είναι δικά σου. Το Memex δεν στέλνει τίποτα πουθενά.",h_sec1:"Σε τι χρησιμεύει;",h_p1:"Το Memex είναι προσωπική βάση δεδομένων + βοηθός AI.",h_sec2:"Λειτουργίες συνομιλίας",h_li1:"🗄 DB – Το AI ψάχνει στη βάση δεδομένων σου.",h_li2:"🤖 AI – Μόνο γνώση AI. Πρόθεμα: @",h_li3:"⚡ Και τα δύο – DB + AI. Πρόθεμα: &",h_sec3:"Καταχώριση",h_p2:"Γράψε αυτό που θέλεις να θυμάσαι.",h_sec4:"Αυτόματη αποθήκευση",h_p3:"Όταν το Memex είναι ΕΝΕ, κάθε ερώτηση-απάντηση αποθηκεύεται αυτόματα.",h_sec5:"Εξαγωγή / Εισαγωγή",h_p4:"Κατέβασε την κρυπτογραφημένη βάση δεδομένων σου.",h_sec6:"Κλειδί API",h_p5:"Εισάγετε το κλειδί API στην ενότητα AI.",h_close:"✕ Κλείσιμο",h_ver:"Memex PAIM v0.3 · Προσωπική μνήμη AI · 2026"},
+  he:{sub:"זיכרון AI אישי",test:"בדיקה",save_key:"💾 שמור",models:"↻ רענן",auto_s:"💾 שמירה אוטומטית",look:"🎨 מראה",uuid_s:"🆔 UUID",fetch:"טעון",chat:"צ'אט",entry:"רישום",search:"חיפוש",export_t:"Import/Export",welcome:"שלום! בחר מצב.\n🗄 DB – מסד נתונים\n🤖 AI – AI בלבד\n⚡ שניהם – DB + AI",hint_db:"מחפש ב-DB",hint_ai:"AI בלבד",hint_mix:"DB + AI",content:"תוכן",hooks:"עוגנים",type_l:"סוג",prio:"עדיפות",save:"💾 שמור",pw:"סיסמה",file_l:"קובץ",exp_btn:"📦 ייצוא",prev:"ייצואים קודמים",upd:"רענן",same:"📥 אותו מכשיר",newdev:"📱 מכשיר חדש",warn:"⚠ גיבוי אוטומטי.",all_opt:"הכל",testing:"בדיקה…",connected:"מחובר",err:"לא זמין",searching:"מחפש…",no_result:"אין תוצאות.",no_exp:"אין ייצואים.",saved:"✓ נשמר!",loading:"טוען…",api_lbl:"סוג API",key_lbl:"מפתח API",custom_lbl:"מזהה מודל מותאם",normal:"🟢 רגיל",fontos:"🟡 חשוב",duma:"⚪ שיחת חולין",hint_keres:"הקלד ולחץ Enter.",url_lbl:"כתובת",lang_lbl:"שפה",dball:"סה\"כ",dbhuman:"אנושי",dbai:"AI",f1:"🔴 קריטי",f2:"🟡 חשוב",f3:"🟢 רגיל",f4:"⚪ שיחת חולין",be:"פועל",ki:"כבוי",srv_s:"🔌 שרת",ai_s:"🤖 AI",db_s:"🗄 מסד נתונים",h_export:"ייצוא",h_import:"ייבוא",help:"❓ עזרה",h_title:"⬡ Memex Paim – מדריך",h_tagline:"AI שוכח. מסד הנתונים זוכר.",h_free:"הנתונים שלך שייכים לך. Memex לא שולח כלום לשום מקום.",h_sec1:"למה זה משמש?",h_p1:"Memex הוא מסד נתונים אישי + עוזר AI.",h_sec2:"מצבי צ'אט",h_li1:"🗄 DB – AI מחפש במסד הנתונים שלך.",h_li2:"🤖 AI – ידע עצמי בלבד. קידומת: @",h_li3:"⚡ שניהם – DB + AI. קידומת: &",h_sec3:"רישום",h_p2:"כתוב מה שאתה רוצה לזכור.",h_sec4:"שמירה אוטומטית",h_p3:"כשMemex פועל, כל שאלה ותשובה נשמרת אוטומטית.",h_sec5:"ייצוא / ייבוא",h_p4:"הורד את מסד הנתונים המוצפן שלך.",h_sec6:"מפתח API",h_p5:"הזן את מפתח ה-API בסעיף AI.",h_close:"✕ סגור",h_ver:"Memex PAIM v0.3 · זיכרון AI אישי · 2026"},
+  hi:{sub:"व्यक्तिगत AI स्मृति",test:"परीक्षण",save_key:"💾 सहेजें",models:"↻ रिफ्रेश",auto_s:"💾 स्वतः सहेजें",look:"🎨 रूप",uuid_s:"🆔 UUID",fetch:"प्राप्त करें",chat:"चैट",entry:"प्रविष्टि",search:"खोज",export_t:"Import/Export",welcome:"नमस्ते! एक मोड चुनें।\n🗄 DB – डेटाबेस\n🤖 AI – केवल AI\n⚡ दोनों – DB + AI",hint_db:"DB खोजता है",hint_ai:"केवल AI",hint_mix:"DB + AI",content:"सामग्री",hooks:"एंकर",type_l:"प्रकार",prio:"प्राथमिकता",save:"💾 सहेजें",pw:"पासवर्ड",file_l:"फ़ाइल",exp_btn:"📦 निर्यात",prev:"पिछले निर्यात",upd:"अपडेट",same:"📥 वही डिवाइस",newdev:"📱 नया डिवाइस",warn:"⚠ बैकअप स्वचालित।",all_opt:"सभी",testing:"परीक्षण…",connected:"जुड़ा",err:"अनुपलब्ध",searching:"खोज…",no_result:"कोई परिणाम नहीं।",no_exp:"कोई निर्यात नहीं।",saved:"✓ सहेजा!",loading:"लोड हो रहा…",api_lbl:"API प्रकार",key_lbl:"API कुंजी",custom_lbl:"कस्टम मॉडल ID",normal:"🟢 सामान्य",fontos:"🟡 महत्वपूर्ण",duma:"⚪ गपशप",hint_keres:"टाइप करें और Enter दबाएं।",url_lbl:"पता",lang_lbl:"भाषा",dball:"कुल",dbhuman:"मानव",dbai:"AI",f1:"🔴 गंभीर",f2:"🟡 महत्वपूर्ण",f3:"🟢 सामान्य",f4:"⚪ गपशप",be:"चालू",ki:"बंद",srv_s:"🔌 सर्वर",ai_s:"🤖 AI",db_s:"🗄 डेटाबेस",h_export:"निर्यात",h_import:"आयात",help:"❓ सहायता",h_title:"⬡ Memex Paim – मैनुअल",h_tagline:"AI भूल जाता है। डेटाबेस याद रखता है।",h_free:"आपका डेटा आपका है। Memex कुछ भी कहीं नहीं भेजता।",h_sec1:"किस काम का?",h_p1:"Memex एक व्यक्तिगत डेटाबेस + AI सहायक है।",h_sec2:"चैट मोड",h_li1:"🗄 DB – AI आपके डेटाबेस में खोजता है।",h_li2:"🤖 AI – केवल अपना ज्ञान। उपसर्ग: @",h_li3:"⚡ दोनों – DB + AI। उपसर्ग: &",h_sec3:"प्रविष्टि",h_p2:"जो याद रखना चाहते हैं वो लिखें।",h_sec4:"स्वतः सहेजें",h_p3:"जब Memex चालू हो, हर Q&A स्वतः सहेजा जाता है।",h_sec5:"निर्यात / आयात",h_p4:"एन्क्रिप्टेड डेटाबेस डाउनलोड करें।",h_sec6:"API कुंजी",h_p5:"AI अनुभाग में API कुंजी दर्ज करें।",h_close:"✕ बंद करें",h_ver:"Memex PAIM v0.3 · व्यक्तिगत AI स्मृति · 2026"},
+  id:{sub:"Memori AI pribadi",test:"Uji",save_key:"💾 Simpan",models:"↻ Segarkan",auto_s:"💾 Simpan otomatis",look:"🎨 Tampilan",uuid_s:"🆔 UUID",fetch:"Ambil",chat:"Obrolan",entry:"Catatan",search:"Cari",export_t:"Import/Export",welcome:"Halo! Pilih mode.\n🗄 DB – basis data\n🤖 AI – hanya AI\n⚡ Keduanya – DB + AI",hint_db:"Mencari DB",hint_ai:"Hanya AI",hint_mix:"DB + AI",content:"Konten",hooks:"Jangkar",type_l:"Tipe",prio:"Prioritas",save:"💾 Simpan",pw:"Kata sandi",file_l:"Berkas",exp_btn:"📦 Ekspor",prev:"Ekspor sebelumnya",upd:"Segarkan",same:"📥 Perangkat sama",newdev:"📱 Perangkat baru",warn:"⚠ Cadangan otomatis.",all_opt:"Semua",testing:"Menguji…",connected:"Terhubung",err:"Tidak tersedia",searching:"Mencari…",no_result:"Tidak ada hasil.",no_exp:"Belum ada ekspor.",saved:"✓ Tersimpan!",loading:"Memuat…",api_lbl:"Tipe API",key_lbl:"Kunci API",custom_lbl:"ID model kustom",normal:"🟢 Normal",fontos:"🟡 Penting",duma:"⚪ Obrolan",hint_keres:"Ketik dan tekan Enter.",url_lbl:"Alamat",lang_lbl:"Bahasa",dball:"Total",dbhuman:"Manusia",dbai:"AI",f1:"🔴 Kritis",f2:"🟡 Penting",f3:"🟢 Normal",f4:"⚪ Obrolan",be:"AKTIF",ki:"NONAKTIF",srv_s:"🔌 Server",ai_s:"🤖 AI",db_s:"🗄 Basis data",h_export:"Ekspor",h_import:"Impor",help:"❓ Bantuan",h_title:"⬡ Memex Paim – Panduan",h_tagline:"AI lupa. Basis data mengingat.",h_free:"Data Anda adalah milik Anda. Memex tidak mengirim apa pun ke mana pun.",h_sec1:"Untuk apa?",h_p1:"Memex adalah basis data pribadi + asisten AI.",h_sec2:"Mode obrolan",h_li1:"🗄 DB – AI mencari di basis data Anda.",h_li2:"🤖 AI – Hanya pengetahuan sendiri. Awalan: @",h_li3:"⚡ Keduanya – DB + AI. Awalan: &",h_sec3:"Catatan",h_p2:"Tulis apa yang ingin Anda ingat.",h_sec4:"Simpan otomatis",h_p3:"Ketika Memex AKTIF, setiap Q&A tersimpan otomatis.",h_sec5:"Ekspor / Impor",h_p4:"Unduh basis data terenkripsi Anda.",h_sec6:"Kunci API",h_p5:"Masukkan kunci API di bagian AI.",h_close:"✕ Tutup",h_ver:"Memex PAIM v0.3 · Memori AI pribadi · 2026"},
+  ja:{sub:"パーソナルAIメモリ",test:"テスト",save_key:"💾 保存",models:"↻ 更新",auto_s:"💾 自動保存",look:"🎨 外観",uuid_s:"🆔 UUID",fetch:"取得",chat:"チャット",entry:"記録",search:"検索",export_t:"Import/Export",welcome:"こんにちは！モードを選んでください。\n🗄 DB – データベース\n🤖 AI – AIのみ\n⚡ 全て – DB + AI",hint_db:"DBを検索",hint_ai:"AIのみ",hint_mix:"DB + AI",content:"コンテンツ",hooks:"アンカー",type_l:"タイプ",prio:"優先度",save:"💾 保存",pw:"パスワード",file_l:"ファイル",exp_btn:"📦 エクスポート",prev:"以前のエクスポート",upd:"更新",same:"📥 同じデバイス",newdev:"📱 新しいデバイス",warn:"⚠ バックアップ自動。",all_opt:"全て",testing:"テスト中…",connected:"接続済み",err:"利用不可",searching:"検索中…",no_result:"結果なし。",no_exp:"エクスポートなし。",saved:"✓ 保存済み！",loading:"読み込み中…",api_lbl:"APIタイプ",key_lbl:"APIキー",custom_lbl:"カスタムモデルID",normal:"🟢 通常",fontos:"🟡 重要",duma:"⚪ 雑談",hint_keres:"入力してEnterを押してください。",url_lbl:"アドレス",lang_lbl:"言語",dball:"合計",dbhuman:"人間",dbai:"AI",f1:"🔴 緊急",f2:"🟡 重要",f3:"🟢 通常",f4:"⚪ 雑談",be:"オン",ki:"オフ",srv_s:"🔌 サーバー",ai_s:"🤖 AI",db_s:"🗄 データベース",h_export:"エクスポート",h_import:"インポート",help:"❓ ヘルプ",h_title:"⬡ Memex Paim – マニュアル",h_tagline:"AIは忘れる。データベースは覚えている。",h_free:"あなたのデータはあなたのもの。Memexは何も送信しません。",h_sec1:"何のため？",h_p1:"Memexは個人データベース + AIアシスタントです。",h_sec2:"チャットモード",h_li1:"🗄 DB – AIがあなたのデータベースを検索します。",h_li2:"🤖 AI – 自分の知識のみ。プレフィックス：@",h_li3:"⚡ 全て – DB + AI。プレフィックス：&",h_sec3:"記録",h_p2:"覚えておきたいことを書いてください。",h_sec4:"自動保存",h_p3:"Memexがオンの場合、各Q&Aが自動保存されます。",h_sec5:"エクスポート / インポート",h_p4:"暗号化されたデータベースをダウンロード。",h_sec6:"APIキー",h_p5:"AIセクションにAPIキーを入力してください。",h_close:"✕ 閉じる",h_ver:"Memex PAIM v0.3 · パーソナルAIメモリ · 2026"},
+  ko:{sub:"개인 AI 메모리",test:"테스트",save_key:"💾 저장",models:"↻ 새로고침",auto_s:"💾 자동 저장",look:"🎨 외관",uuid_s:"🆔 UUID",fetch:"가져오기",chat:"채팅",entry:"기록",search:"검색",export_t:"Import/Export",welcome:"안녕하세요! 모드를 선택하세요.\n🗄 DB – 데이터베이스\n🤖 AI – AI만\n⚡ 전체 – DB + AI",hint_db:"DB 검색",hint_ai:"AI만",hint_mix:"DB + AI",content:"내용",hooks:"앵커",type_l:"유형",prio:"우선순위",save:"💾 저장",pw:"비밀번호",file_l:"파일",exp_btn:"📦 내보내기",prev:"이전 내보내기",upd:"새로고침",same:"📥 같은 기기",newdev:"📱 새 기기",warn:"⚠ 자동 백업.",all_opt:"전체",testing:"테스트 중…",connected:"연결됨",err:"사용 불가",searching:"검색 중…",no_result:"결과 없음.",no_exp:"내보내기 없음.",saved:"✓ 저장됨!",loading:"로딩 중…",api_lbl:"API 유형",key_lbl:"API 키",custom_lbl:"커스텀 모델 ID",normal:"🟢 보통",fontos:"🟡 중요",duma:"⚪ 잡담",hint_keres:"입력 후 Enter를 누르세요.",url_lbl:"주소",lang_lbl:"언어",dball:"전체",dbhuman:"사람",dbai:"AI",f1:"🔴 긴급",f2:"🟡 중요",f3:"🟢 보통",f4:"⚪ 잡담",be:"켜짐",ki:"꺼짐",srv_s:"🔌 서버",ai_s:"🤖 AI",db_s:"🗄 데이터베이스",h_export:"내보내기",h_import:"가져오기",help:"❓ 도움말",h_title:"⬡ Memex Paim – 매뉴얼",h_tagline:"AI는 잊는다. 데이터베이스는 기억한다.",h_free:"당신의 데이터는 당신의 것입니다. Memex는 아무것도 보내지 않습니다.",h_sec1:"무엇을 위한 것인가?",h_p1:"Memex는 개인 데이터베이스 + AI 어시스턴트입니다.",h_sec2:"채팅 모드",h_li1:"🗄 DB – AI가 당신의 데이터베이스를 검색합니다.",h_li2:"🤖 AI – 자체 지식만 사용. 접두사: @",h_li3:"⚡ 전체 – DB + AI. 접두사: &",h_sec3:"기록",h_p2:"기억하고 싶은 것을 쓰세요.",h_sec4:"자동 저장",h_p3:"Memex가 켜져 있으면 각 Q&A가 자동으로 저장됩니다.",h_sec5:"내보내기 / 가져오기",h_p4:"암호화된 데이터베이스를 다운로드하세요.",h_sec6:"API 키",h_p5:"AI 섹션에 API 키를 입력하세요.",h_close:"✕ 닫기",h_ver:"Memex PAIM v0.3 · 개인 AI 메모리 · 2026"},
+  sw:{sub:"Kumbukumbu ya AI ya kibinafsi",test:"Jaribu",save_key:"💾 Hifadhi",models:"↻ Onyesha upya",auto_s:"💾 Hifadhi kiotomatiki",look:"🎨 Mwonekano",uuid_s:"🆔 UUID",fetch:"Pata",chat:"Mazungumzo",entry:"Ingizo",search:"Tafuta",export_t:"Import/Export",welcome:"Habari! Chagua hali.\n🗄 DB – hifadhidata\n🤖 AI – AI tu\n⚡ Vyote – DB + AI",hint_db:"Inatafuta DB",hint_ai:"AI tu",hint_mix:"DB + AI",content:"Maudhui",hooks:"Nanga",type_l:"Aina",prio:"Kipaumbele",save:"💾 Hifadhi",pw:"Nywila",file_l:"Faili",exp_btn:"📦 Hamisha",prev:"Uhamishaji uliopita",upd:"Onyesha upya",same:"📥 Kifaa hicho hicho",newdev:"📱 Kifaa kipya",warn:"⚠ Nakala rudufu kiotomatiki.",all_opt:"Yote",testing:"Inajaribu…",connected:"Imeunganishwa",err:"Haipatikani",searching:"Inatafuta…",no_result:"Hakuna matokeo.",no_exp:"Hakuna uhamishaji.",saved:"✓ Imehifadhiwa!",loading:"Inapakia…",api_lbl:"Aina ya API",key_lbl:"Ufunguo wa API",custom_lbl:"Kitambulisho cha modeli maalum",normal:"🟢 Kawaida",fontos:"🟡 Muhimu",duma:"⚪ Mazungumzo",hint_keres:"Andika na ubonyeze Enter.",url_lbl:"Anwani",lang_lbl:"Lugha",dball:"Jumla",dbhuman:"Binadamu",dbai:"AI",f1:"🔴 Muhimu sana",f2:"🟡 Muhimu",f3:"🟢 Kawaida",f4:"⚪ Mazungumzo",be:"WASHA",ki:"ZIMA",srv_s:"🔌 Seva",ai_s:"🤖 AI",db_s:"🗄 Hifadhidata",h_export:"Hamisha",h_import:"Ingiza",help:"❓ Msaada",h_title:"⬡ Memex Paim – Mwongozo",h_tagline:"AI husahau. Hifadhidata hukumbuka.",h_free:"Data yako ni yako. Memex haitumi chochote mahali popote.",h_sec1:"Ni kwa nini?",h_p1:"Memex ni hifadhidata ya kibinafsi + msaidizi wa AI.",h_sec2:"Hali za mazungumzo",h_li1:"🗄 DB – AI inatafuta kwenye hifadhidata yako.",h_li2:"🤖 AI – Maarifa yake tu. Kiambishi: @",h_li3:"⚡ Vyote – DB + AI. Kiambishi: &",h_sec3:"Ingizo",h_p2:"Andika unachotaka kukumbuka.",h_sec4:"Hifadhi kiotomatiki",h_p3:"Memex WASHA inapohifadhi kila Q&A kiotomatiki.",h_sec5:"Hamisha / Ingiza",h_p4:"Pakua hifadhidata yako iliyosimbwa.",h_sec6:"Ufunguo wa API",h_p5:"Ingiza ufunguo wa API katika sehemu ya AI.",h_close:"✕ Funga",h_ver:"Memex PAIM v0.3 · Kumbukumbu ya AI ya kibinafsi · 2026"},
+  th:{sub:"หน่วยความจำ AI ส่วนตัว",test:"ทดสอบ",save_key:"💾 บันทึก",models:"↻ รีเฟรช",auto_s:"💾 บันทึกอัตโนมัติ",look:"🎨 รูปลักษณ์",uuid_s:"🆔 UUID",fetch:"ดึงข้อมูล",chat:"แชท",entry:"บันทึก",search:"ค้นหา",export_t:"Import/Export",welcome:"สวัสดี! เลือกโหมด\n🗄 DB – ฐานข้อมูล\n🤖 AI – AI เท่านั้น\n⚡ ทั้งหมด – DB + AI",hint_db:"ค้นหาใน DB",hint_ai:"AI เท่านั้น",hint_mix:"DB + AI",content:"เนื้อหา",hooks:"จุดยึด",type_l:"ประเภท",prio:"ลำดับความสำคัญ",save:"💾 บันทึก",pw:"รหัสผ่าน",file_l:"ไฟล์",exp_btn:"📦 ส่งออก",prev:"การส่งออกก่อนหน้า",upd:"อัปเดต",same:"📥 อุปกรณ์เดิม",newdev:"📱 อุปกรณ์ใหม่",warn:"⚠ สำรองข้อมูลอัตโนมัติ",all_opt:"ทั้งหมด",testing:"กำลังทดสอบ…",connected:"เชื่อมต่อแล้ว",err:"ไม่พร้อมใช้งาน",searching:"กำลังค้นหา…",no_result:"ไม่พบผลลัพธ์",no_exp:"ยังไม่มีการส่งออก",saved:"✓ บันทึกแล้ว!",loading:"กำลังโหลด…",api_lbl:"ประเภท API",key_lbl:"คีย์ API",custom_lbl:"ID โมเดลที่กำหนดเอง",normal:"🟢 ปกติ",fontos:"🟡 สำคัญ",duma:"⚪ คุยเล่น",hint_keres:"พิมพ์แล้วกด Enter",url_lbl:"ที่อยู่",lang_lbl:"ภาษา",dball:"ทั้งหมด",dbhuman:"มนุษย์",dbai:"AI",f1:"🔴 วิกฤต",f2:"🟡 สำคัญ",f3:"🟢 ปกติ",f4:"⚪ คุยเล่น",be:"เปิด",ki:"ปิด",srv_s:"🔌 เซิร์ฟเวอร์",ai_s:"🤖 AI",db_s:"🗄 ฐานข้อมูล",h_export:"ส่งออก",h_import:"นำเข้า",help:"❓ ช่วยเหลือ",h_title:"⬡ Memex Paim – คู่มือ",h_tagline:"AI ลืม ฐานข้อมูลจำ",h_free:"ข้อมูลของคุณเป็นของคุณ Memex ไม่ส่งอะไรไปที่ไหนเลย",h_sec1:"ใช้ทำอะไร?",h_p1:"Memex คือฐานข้อมูลส่วนตัว + ผู้ช่วย AI",h_sec2:"โหมดแชท",h_li1:"🗄 DB – AI ค้นหาในฐานข้อมูลของคุณ",h_li2:"🤖 AI – ความรู้ตัวเองเท่านั้น คำนำหน้า: @",h_li3:"⚡ ทั้งหมด – DB + AI คำนำหน้า: &",h_sec3:"บันทึก",h_p2:"เขียนสิ่งที่คุณต้องการจำ",h_sec4:"บันทึกอัตโนมัติ",h_p3:"เมื่อ Memex เปิดอยู่ ทุก Q&A จะถูกบันทึกอัตโนมัติ",h_sec5:"ส่งออก / นำเข้า",h_p4:"ดาวน์โหลดฐานข้อมูลที่เข้ารหัส",h_sec6:"คีย์ API",h_p5:"ป้อนคีย์ API ในส่วน AI",h_close:"✕ ปิด",h_ver:"Memex PAIM v0.3 · หน่วยความจำ AI ส่วนตัว · 2026"},
+  vi:{sub:"Bộ nhớ AI cá nhân",test:"Kiểm tra",save_key:"💾 Lưu",models:"↻ Làm mới",auto_s:"💾 Tự động lưu",look:"🎨 Giao diện",uuid_s:"🆔 UUID",fetch:"Lấy",chat:"Chat",entry:"Ghi chú",search:"Tìm kiếm",export_t:"Import/Export",welcome:"Xin chào! Chọn chế độ.\n🗄 DB – cơ sở dữ liệu\n🤖 AI – chỉ AI\n⚡ Cả hai – DB + AI",hint_db:"Tìm trong DB",hint_ai:"Chỉ AI",hint_mix:"DB + AI",content:"Nội dung",hooks:"Neo",type_l:"Loại",prio:"Ưu tiên",save:"💾 Lưu",pw:"Mật khẩu",file_l:"Tệp",exp_btn:"📦 Xuất",prev:"Xuất trước đây",upd:"Làm mới",same:"📥 Cùng thiết bị",newdev:"📱 Thiết bị mới",warn:"⚠ Sao lưu tự động.",all_opt:"Tất cả",testing:"Đang kiểm tra…",connected:"Đã kết nối",err:"Không khả dụng",searching:"Đang tìm…",no_result:"Không có kết quả.",no_exp:"Chưa có xuất.",saved:"✓ Đã lưu!",loading:"Đang tải…",api_lbl:"Loại API",key_lbl:"Khóa API",custom_lbl:"ID mô hình tùy chỉnh",normal:"🟢 Bình thường",fontos:"🟡 Quan trọng",duma:"⚪ Tán gẫu",hint_keres:"Nhập và nhấn Enter.",url_lbl:"Địa chỉ",lang_lbl:"Ngôn ngữ",dball:"Tổng",dbhuman:"Con người",dbai:"AI",f1:"🔴 Nghiêm trọng",f2:"🟡 Quan trọng",f3:"🟢 Bình thường",f4:"⚪ Tán gẫu",be:"BẬT",ki:"TẮT",srv_s:"🔌 Máy chủ",ai_s:"🤖 AI",db_s:"🗄 Cơ sở dữ liệu",h_export:"Xuất",h_import:"Nhập",help:"❓ Trợ giúp",h_title:"⬡ Memex Paim – Hướng dẫn",h_tagline:"AI quên. Cơ sở dữ liệu nhớ.",h_free:"Dữ liệu của bạn là của bạn. Memex không gửi gì đến đâu cả.",h_sec1:"Dùng để làm gì?",h_p1:"Memex là cơ sở dữ liệu cá nhân + trợ lý AI.",h_sec2:"Chế độ chat",h_li1:"🗄 DB – AI tìm kiếm trong cơ sở dữ liệu của bạn.",h_li2:"🤖 AI – Chỉ kiến thức riêng. Tiền tố: @",h_li3:"⚡ Cả hai – DB + AI. Tiền tố: &",h_sec3:"Ghi chú",h_p2:"Viết những gì bạn muốn nhớ.",h_sec4:"Tự động lưu",h_p3:"Khi Memex BẬT, mỗi Q&A được lưu tự động.",h_sec5:"Xuất / Nhập",h_p4:"Tải xuống cơ sở dữ liệu được mã hóa.",h_sec6:"Khóa API",h_p5:"Nhập khóa API trong phần AI.",h_close:"✕ Đóng",h_ver:"Memex PAIM v0.3 · Bộ nhớ AI cá nhân · 2026"},
+  zu:{sub:"Inkumbulo ye-AI yomuntu siqu",test:"Hlola",save_key:"💾 Gcina",models:"↻ Vuselela",auto_s:"💾 Gcina ngokuzenzakalela",look:"🎨 Ukubukeka",uuid_s:"🆔 UUID",fetch:"Thola",chat:"Ingxoxo",entry:"Ingeno",search:"Sesha",export_t:"Import/Export",welcome:"Sawubona! Khetha indlela.\n🗄 DB – isisekelo sedatha\n🤖 AI – AI kuphela\n⚡ Kokubili – DB + AI",hint_db:"Sesha ku-DB",hint_ai:"AI kuphela",hint_mix:"DB + AI",content:"Okuqukethwe",hooks:"Izinhlaka",type_l:"Uhlobo",prio:"Ukubaluleka",save:"💾 Gcina",pw:"Iphasiwedi",file_l:"Ifayela",exp_btn:"📦 Thumela",prev:"Ukuthumelwa kwangaphambilini",upd:"Vuselela",same:"📥 Idivayisi efanayo",newdev:"📱 Idivayisi entsha",warn:"⚠ Isipele esizenzakalela.",all_opt:"Konke",testing:"Iyahlola…",connected:"Ixhumene",err:"Ayitholakali",searching:"Iyasesha…",no_result:"Awekho amatokeni.",no_exp:"Ayikho inkulumo.",saved:"✓ Kugciniwe!",loading:"Iyalayisha…",api_lbl:"Uhlobo lwe-API",key_lbl:"Ukhiye we-API",custom_lbl:"I-ID yemodeli ekhethekile",normal:"🟢 Okujwayelekile",fontos:"🟡 Kubalulekile",duma:"⚪ Ingxoxo",hint_keres:"Bhala bese ucindezela Enter.",url_lbl:"Ikheli",lang_lbl:"Ulimi",dball:"Isamba",dbhuman:"Umuntu",dbai:"AI",f1:"🔴 Okuphuthumayo",f2:"🟡 Kubalulekile",f3:"🟢 Okujwayelekile",f4:"⚪ Ingxoxo",be:"VULA",ki:"VALA",srv_s:"🔌 Iseva",ai_s:"🤖 AI",db_s:"🗄 Isisekelo sedatha",h_export:"Thumela",h_import:"Ngenisa",help:"❓ Usizo",h_title:"⬡ Memex Paim – Umhlahlandlela",h_tagline:"I-AI ikhohlwa. Isisekelo sedatha sikhumbula.",h_free:"Idatha yakho ingeyakho. I-Memex ayithumeli lutho noma kuphi.",h_sec1:"Isetshenziswa nini?",h_p1:"I-Memex isisekelo sedatha somuntu siqu + umsizi we-AI.",h_sec2:"Izindlela zengxoxo",h_li1:"🗄 DB – I-AI isesha isisekelo sakho sedatha.",h_li2:"🤖 AI – Ulwazi lwayo kuphela. Isiqalo: @",h_li3:"⚡ Kokubili – DB + AI. Isiqalo: &",h_sec3:"Ingeno",h_p2:"Bhala lokho ofuna ukukhumbula.",h_sec4:"Gcina ngokuzenzakalela",h_p3:"I-Memex VULA, yonke imibuzo nezimpendulo kugcinwa ngokuzenzakalela.",h_sec5:"Thumela / Ngenisa",h_p4:"Landa isisekelo sedatha esifihlekile.",h_sec6:"Ukhiye we-API",h_p5:"Faka ukhiye we-API kwendawo ye-AI.",h_close:"✕ Vala",h_ver:"Memex PAIM v0.3 · Inkumbulo ye-AI yomuntu siqu · 2026"},
+};
+
+// AI-fordított cache
+let aiCache={};
+try{aiCache=JSON.parse(localStorage.getItem('mx_ai_lang')||'{}');}catch(e){}
+
+let lang=localStorage.getItem('mx_lang')||'en';
+
+function tr(k){
+  if(lang==='hu'||!lang) return HU[k]||k;
+  if(BEEPITETT[lang]) return BEEPITETT[lang][k]||BEEPITETT['en'][k]||HU[k]||k;
+  if(aiCache[lang]) return aiCache[lang][k]||BEEPITETT['en'][k]||HU[k]||k;
+  return BEEPITETT['en'][k]||HU[k]||k;
+}
+
+/* Nyelv választás */
+async function langValaszt(v){
+  if(!v) return;
+  if(BEEPITETT[v]!==undefined){
+    lang=v; localStorage.setItem('mx_lang',v);
+    document.getElementById('lang-status').textContent='';
+    langFrissit(); return;
+  }
+  if(aiCache[v]){
+    lang=v; localStorage.setItem('mx_lang',v);
+    document.getElementById('lang-status').innerHTML='<span style="color:var(--green)">✓</span>';
+    langFrissit(); return;
+  }
+  // AI fordítás kell
+  const ov=document.getElementById('lang-overlay');
+  document.getElementById('lo-lang-nev').textContent=v;
+  ov.classList.add('show');
+  const prompt=`Translate all these UI labels into "${v}" language. Return ONLY a valid JSON object with the exact same keys. Keep emojis. Keep \\n. No markdown.\n\n`+JSON.stringify(HU);
+  try{
+    const r=await fetch(apiUrl('/kerdes'),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kerdes:prompt,api:'auto',model:'',routing:'ai'})});
+    const d=await r.json();
+    const match=(d.valasz||'').match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('no JSON');
+    const f=JSON.parse(match[0]);
+    aiCache[v]=f; localStorage.setItem('mx_ai_lang',JSON.stringify(aiCache));
+    lang=v; localStorage.setItem('mx_lang',v);
+    document.getElementById('lang-status').innerHTML='<span style="color:var(--green)">✓ Lefordítva</span>';
+    langFrissit();
+  }catch(e){
+    document.getElementById('lang-status').innerHTML='<span style="color:var(--red)">✗ Hiba</span>';
+    document.getElementById('lang-select').value=lang; // visszaáll
+  }
+  ov.classList.remove('show');
+}
+
+/* UI frissítés */
+function langFrissit(){
+  const s=(id,k)=>{const e=document.getElementById(id);if(e)e.textContent=tr(k);};
+  s('b-test','test'); s('b-savekey','save_key'); s('b-models','models');
+  s('s-auto','auto_s'); s('s-look','look'); s('s-uuid','uuid_s'); s('b-uuid','fetch');
+  s('t-chat','chat'); s('t-bej','entry'); s('t-keres','search'); s('t-export','export_t');
+  s('welcome-msg','welcome');
+  s('l-content','content'); s('l-hooks','hooks'); s('l-type','type_l');
+  s('l-prio','prio'); s('b-bejment','save');
+  s('h-uj','h_uj'); s('uj-desc','uj_desc');
+  s('exp-jelszo-hint','exp_pw_hint'); s('imp-jelszo-hint','imp_pw_hint');
+  s('l-session-horgony','l_session_horgony');
+  s('b-uuid-exp','fetch');
+  const epw=document.getElementById('exp-jelszo');if(epw)epw.placeholder=tr('exp_pw_ph');
+  const ipw=document.getElementById('imp-jelszo');if(ipw)ipw.placeholder=tr('imp_pw_ph');
+  const sh=document.getElementById('session-horgony');if(sh)sh.placeholder=tr('session_horgony_ph');
+  s('b-export','exp_btn'); s('h-prev','prev'); s('b-explist','upd');
+  s('b-imp-same','same'); s('b-imp-new','newdev'); s('imp-warn','warn');
+  s('o-mind','all_opt'); s('keres-hint','hint_keres');
+  s('l-api','api_lbl'); s('l-key','key_lbl'); s('l-url','url_lbl');
+  s('l-lang','lang_lbl');
+  s('o3','normal'); s('o2','fontos'); s('o4','duma');
+  s('f1','f1'); s('f2','f2'); s('f3','f3'); s('f4','f4');
+  s('h-export','h_export'); s('h-import','h_import');
+  s('db-info-free','db_free'); s('db-info-paid','db_paid'); s('db-info-sub','db_sub');
+  s('imp-fajl-lbl','file_pick');
+  s('sys-t','sys_t'); s('sys-desc','sys_desc'); s('b-sysment','sys_save'); s('b-systorol','sys_del');
+  s('pcmd-t','pcmd_t'); s('pcmd-desc','pcmd_desc'); s('b-pcmdment','pcmd_save');
+  const syta=document.getElementById('sysprompt-ta');if(syta&&!syta.value)syta.placeholder=tr('sys_ph');
+  s('t-prmpt','t_prmpt');
+  s('s-server','srv_s'); s('s-ai','ai_s'); s('s-db','db_s');
+  s('b-help','help');
+  s('aktiv-lbl','aktiv_lbl'); s('meret-lbl','meret_lbl'); s('b-chunk','chunk_btn');
+  // textarea + search + hooks placeholders
+  const ui=document.getElementById('user-input');if(ui) ui.placeholder=tr('input_ph');
+  const sq=document.getElementById('keres-q');if(sq) sq.placeholder=tr('search_ph');
+  const hq=document.getElementById('bej-horgonyok');if(hq) hq.placeholder=tr('hooks_ph');
+  // type dropdown options
+  s('o-dec','type_dec'); s('o-idea','type_idea'); s('o-bug','type_bug'); s('o-proj','type_proj');
+  // stat sor
+  const ss=document.getElementById('stat-sor');
+  if(ss) ss.innerHTML=`<div>${tr('dball')}: <span id="stat-ossz">–</span></div><div>${tr('dbhuman')}: <span id="stat-human">–</span></div><div>${tr('dbai')}: <span id="stat-ai">–</span></div>`;
+  // pfx hint
+  const ph=document.getElementById('pfx-hint');if(ph) ph.textContent=tr('hint_'+aktPrefix);
+  // conn-info re-render with current language
+  connInfoFrissit();
+  // lang select
+  const ls=document.getElementById('lang-select');
+  if(ls && (BEEPITETT[lang]!==undefined||aiCache[lang])) ls.value=lang;
+  memexAllapotFrissit();
+  helpSzovegFrissit();
+  statFrissit();
+}
+
+/* Help szöveg frissítés az aktuális nyelvvel */
+function helpSzovegFrissit(){
+  const s=(id,k)=>{const e=document.getElementById(id);if(e)e.textContent=tr(k);};
+  s('h-title','h_title'); s('h-tagline','h_tagline'); s('h-free','h_free');
+  s('h-sec1','h_sec1'); s('h-p1','h_p1');
+  s('h-sec2','h_sec2');
+  s('h-li1','h_li1'); s('h-li2','h_li2'); s('h-li3','h_li3');
+  s('h-sec3','h_sec3'); s('h-p2','h_p2');
+  s('h-sec4','h_sec4'); s('h-p3','h_p3');
+  s('h-sec5','h_sec5'); s('h-p4','h_p4');
+  s('h-sec6','h_sec6'); s('h-p5','h_p5');
+  s('h-sec7','h_sec7'); s('h-p6','h_p6');
+  s('h-version','h_ver');
+  // close gomb
+  const cb=document.querySelector('#help-overlay .help-close');
+  if(cb) cb.textContent=tr('h_close');
+}
+
+/* Help ablak */
+function helpNyit(){ helpSzovegFrissit(); document.getElementById('help-overlay').classList.add('show'); }
+function helpZar(){ document.getElementById('help-overlay').classList.remove('show'); }
+
+/* ══════════ SIDEBAR TOGGLE ══════════ */
+let sidebarVan=localStorage.getItem('mx_sidebar')!=='false';
+function sidebarToggle(){
+  sidebarVan=!sidebarVan;
+  localStorage.setItem('mx_sidebar',sidebarVan);
+  document.getElementById('sidebar').classList.toggle('hidden',!sidebarVan);
+}
+// init
+if(!sidebarVan) document.getElementById('sidebar').classList.add('hidden');
+
+/* ══════════ SKIN ══════════ */
+let aktivSkin=localStorage.getItem('mx_skin')||'';
+function skinSet(s){
+  aktivSkin=s; localStorage.setItem('mx_skin',s);
+  document.documentElement.setAttribute('data-skin',s);
+  document.querySelectorAll('.sdot').forEach((d,i)=>
+    d.classList.toggle('on',['','light','forest','ocean','amber'][i]===s));
+}
+skinSet(aktivSkin);
+
+/* ══════════ ACCORDION ══════════ */
+const accState={};
+function accToggle(id){
+  const body=document.getElementById('acc-'+id);
+  const arrow=document.getElementById('arr-'+id);
+  const closed=body.classList.toggle('closed');
+  arrow.classList.toggle('open',!closed);
+  accState[id]=!closed;
+  localStorage.setItem('mx_acc',JSON.stringify(accState));
+}
+function accInit(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('mx_acc')||'{}');
+    ['srv','ai','db','auto','look','uuid'].forEach(id=>{
+      if(saved[id]===false){
+        document.getElementById('acc-'+id).classList.add('closed');
+        document.getElementById('arr-'+id).classList.remove('open');
+        accState[id]=false;
+      }else accState[id]=true;
+    });
+    if(!localStorage.getItem('mx_acc')){
+      document.getElementById('acc-uuid').classList.add('closed');
+      document.getElementById('arr-uuid').classList.remove('open');
+    }
+  }catch(e){}
+}
+
+/* ══════════ HEADER: conn-info frissítés ══════════ */
+function connInfoFrissit(ok,auto,model){
+  if(ok!==undefined) _connState={ok,auto:auto||'?',model:model||''};
+  const dot=document.getElementById('conn-dot');
+  const txt=document.getElementById('conn-text');
+  if(_connState.ok){
+    dot.className='dot-ok'; dot.textContent='●';
+    const modStr=_connState.model?' · '+_connState.model:'';
+    txt.textContent=` ${tr('connected')} · ${_connState.auto}${modStr}`;
+  }else{
+    dot.className='dot-err'; dot.textContent='●';
+    txt.textContent=' '+tr('err');
+  }
+}
+
+/* ══════════ INIT ══════════ */
+let memexBe=localStorage.getItem('mx_be')!=='false';
+let aktPrefix='db';
+let fontossag=3;
+let selModel=localStorage.getItem('mx_model')||'';
+let chunkMode=localStorage.getItem('mx_chunk')==='1';
+function chunkToggle(){
+  chunkMode=!chunkMode;
+  localStorage.setItem('mx_chunk',chunkMode?'1':'0');
+  document.getElementById('pfx-chunk').className='pfx'+(chunkMode?' p-chunk':'');
+}
+// init chunk gomb állapot
+(function(){const b=document.getElementById('pfx-chunk');if(b&&chunkMode)b.className='pfx p-chunk';})();
+let _connState={ok:true,auto:'?',model:''};
+
+document.getElementById('server-url').value=localStorage.getItem('mx_url')||'http://192.168.0.64:8765';
+document.getElementById('api-type').value=localStorage.getItem('mx_api')||'auto';
+// model-select pre-select happens after modelekListaz()
+const _ls=document.getElementById('lang-select');
+if(_ls&&(BEEPITETT[lang]!==undefined||aiCache[lang])) _ls.value=lang;
+
+accInit(); apiValtozas(); memexAllapotFrissit(); langFrissit();
+
+function apiUrl(p){return document.getElementById('server-url').value.replace(/\/$/,'')+p;}
+async function apiFetch(path,opts={}){
+  const r=await fetch(apiUrl(path),{headers:{'Content-Type':'application/json'},...opts});
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+function tabValt(nev){
+  ['chat','bej','keres','export','prmpt'].forEach(n=>{
+    document.getElementById('tp-'+n).classList.toggle('active',n===nev);
+    document.getElementById('tab-'+n).classList.toggle('active',n===nev);
+  });
+  if(nev==='export') exportListaFrissit();
+}
+function memexToggle(){memexBe=!memexBe;localStorage.setItem('mx_be',memexBe);memexAllapotFrissit();}
+function memexAllapotFrissit(){
+  const t=document.getElementById('memex-toggle');
+  t.classList.toggle('on',memexBe);
+  document.getElementById('toggle-label').textContent=memexBe?tr('be'):tr('ki');
+}
+function apiValtozas(){
+  const t=document.getElementById('api-type').value;
+  localStorage.setItem('mx_api',t);
+  document.getElementById('kulcs-block').style.display=['offline','ollama','auto'].includes(t)?'none':'block';
+  document.getElementById('model-block').style.display=t==='offline'?'none':'block';
+  const el=document.getElementById('api-aktiv-label');
+  if(t!=='auto'){
+    if(el)el.textContent=t;
+    connInfoFrissit(true,t,selModel);
+  } else {
+    apiFetch('/info').then(d=>{
+      if(el)el.textContent=d.auto||'?';
+      connInfoFrissit(true,d.auto||'?',selModel);
+    }).catch(()=>{});
+  }
+  modelekListaz();
+}
+async function kulcsMent(){
+  const tipus=document.getElementById('api-type').value;
+  const kulcs=document.getElementById('api-key').value.trim();
+  if(!kulcs){alert('Üres kulcs!');return;}
+  const info=document.getElementById('kulcs-info');info.textContent='…';
+  try{
+    await apiFetch('/api_kulcs',{method:'POST',body:JSON.stringify({tipus,kulcs})});
+    info.innerHTML='<span style="color:var(--green)">✓ Elmentve</span>';
+    setTimeout(()=>apiFetch('/info').then(d=>{
+      const el=document.getElementById('api-aktiv-label');if(el)el.textContent=d.auto||'?';
+    }).catch(()=>{}),500);
+    await modelekListaz();
+  }catch(e){info.textContent='Hiba: '+e.message;}
+}
+async function tesztelKapcsolat(){
+  localStorage.setItem('mx_url',document.getElementById('server-url').value);
+  const dt=document.getElementById('conn-detail');
+  dt.textContent=tr('testing');
+  try{
+    const d=await apiFetch('/info');
+    const model=localStorage.getItem('mx_model')||'';
+    const selApi=document.getElementById('api-type').value;
+    connInfoFrissit(true,selApi==='auto'?d.auto:selApi,model);
+    dt.innerHTML=`<span style="color:var(--green)">claude:${d.claude?'✓':'✗'} gemini:${d.gemini?'✓':'✗'}</span>`;
+    const al=document.getElementById('api-aktiv-label');if(al)al.textContent=selApi==='auto'?d.auto||'?':selApi;
+    statFrissit(); irokFrissit(); uuidLeker();
+  }catch(e){
+    connInfoFrissit(false);
+    dt.textContent=e.message;
+  }
+}
+async function statFrissit(){
+  try{
+    const d=await apiFetch('/stat');
+    const g=id=>document.getElementById(id);
+    const o=g('stat-ossz'),h=g('stat-human'),a=g('stat-ai'),m=g('stat-meret');
+    if(o)o.textContent=d.ossz??'–';if(h)h.textContent=d.human??'–';
+    if(a)a.textContent=d.ai??'–';if(m)m.textContent=d.meret_kb?d.meret_kb+'KB':'–';
+  }catch(e){}
+}
+async function irokFrissit(){
+  try{
+    const d=await apiFetch('/irok');
+    const el=document.getElementById('irok-stat');
+    el.textContent=d.irok?.length?d.irok.map(i=>`${i.iro}: ${i.darab}×`).join(' | '):'–';
+  }catch(e){}
+}
+async function modelekListaz(){
+  const info=document.getElementById('model-info');
+  const sel=document.getElementById('model-select');
+  if(!info||!sel)return;
+  info.textContent=tr('loading');
+  try{
+    const t=document.getElementById('api-type').value;
+    const d=await apiFetch('/modelek_lista'+(t&&t!=='auto'?'?api='+t:''));
+    const modelek=d.modelek||[];
+    sel.innerHTML='';
+    modelek.forEach(m=>{
+      const opt=document.createElement('option');
+      opt.value=m.id;
+      opt.textContent=t==='auto'?(m.nev+' ['+m.api+']'):m.nev;
+      if(selModel===m.id)opt.selected=true;
+      sel.appendChild(opt);
+    });
+    if(modelek.length>0){
+      if(!selModel||!modelek.find(m=>m.id===selModel)){
+        selModel=sel.value;
+        localStorage.setItem('mx_model',selModel);
+      } else {
+        sel.value=selModel;
+      }
+      connInfoFrissit(true,document.getElementById('api-aktiv-label').textContent,selModel);
+    }
+    info.innerHTML=`<span style="color:var(--green)">${modelek.length} modell · ${t==='auto'?d.auto_api||'?':t}</span>`;
+  }catch(e){info.textContent='Hiba: '+e.message;}
+}
+function modelKivalaszt(id){
+  selModel=id;
+  localStorage.setItem('mx_model',id);
+  connInfoFrissit(true,document.getElementById('api-aktiv-label').textContent,id);
+}
+function prefixSet(m){
+  aktPrefix=m;
+  ['db','ai','mix'].forEach(x=>document.getElementById('pfx-'+x).className='pfx'+(x===m?' p-'+x:''));
+  const hints={db:tr('hint_db'),ai:tr('hint_ai'),mix:tr('hint_mix')};
+  document.getElementById('pfx-hint').textContent=hints[m]||m;
+}
+function prefixAutoDetect(v){
+  if(v.startsWith('@')&&aktPrefix!=='ai')prefixSet('ai');
+  else if(v.startsWith('&')&&aktPrefix!=='mix')prefixSet('mix');
+}
+function prefixToRouting(){return aktPrefix==='ai'?'ai':aktPrefix==='mix'?'both':'db';}
+function _escNl(s){return s.replace(/</g,'&lt;').replace(/\n/g,'<br>');}
+function uzenetHozzaad(szoveg,ki,model='',routing='',sections=null){
+  const area=document.getElementById('chat-area');
+  const div=document.createElement('div');div.className='msg '+ki;
+  const rc=routing==='ai'?'r-ai':routing==='db'?'r-db':routing==='web'?'r-web':'r-mix';
+  const rl=routing==='db'?'🗄 DB':routing==='ai'?'🤖 AI':routing==='web'?'🌐 Web':'⚡ DB+AI';
+  const sid='s'+Date.now();
+  let bubbHtml='';
+  if(sections&&sections.length>1){
+    bubbHtml=sections.map((s,i)=>`
+      <div class="valasz-resz">
+        <div class="resz-cim ${s.rc}">${s.label}</div>
+        <div class="bubble">${_escNl(s.szoveg)}</div>
+      </div>${i<sections.length-1?'<hr class="resz-sep">':''}`).join('');
+  }else{
+    bubbHtml=`<div class="bubble">${_escNl(szoveg)}</div>`;
+  }
+  div.innerHTML=`<div class="av ${ki==='human'?'h':'a'}">${ki==='human'?'P':'M'}</div>
+    <div>${bubbHtml}
+    <div class="meta">${new Date().toLocaleTimeString()}
+    ${model?`<span style="border:1px solid var(--border);padding:1px 4px;border-radius:6px;">${model}</span>`:''}
+    ${routing?`<span class="rtag ${rc}">${rl}</span>`:''}
+    <span class="saved-tag" id="${sid}"></span></div></div>`;
+  area.appendChild(div);area.scrollTop=area.scrollHeight;
+  // chunk gomb ha chunk mód be van kapcsolva
+  if(ki==='ai'&&chunkMode){
+    const cbtn=document.createElement('button');
+    cbtn.className='chunk-btn';cbtn.textContent=tr('chunk_info');
+    cbtn.onclick=async function(){
+      cbtn.disabled=true;cbtn.textContent='…';
+      try{
+        const ts=new Date().toISOString().slice(0,10);
+        const n=await darabolvaBeMent(szoveg,[ts,'ai-chunk'],3,'');
+        cbtn.textContent=tr('chunk_done').replace('{n}',n);
+        statFrissit();
+      }catch(e){cbtn.textContent='Hiba';cbtn.disabled=false;}
+    };
+    div.querySelector('div').appendChild(cbtn);
+  }
+  return sid;
+}
+function loaderMutat(){
+  const area=document.getElementById('chat-area');
+  const d=document.createElement('div');d.id='loader';d.className='msg ai';
+  d.innerHTML='<div class="av a">M</div><div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div></div>';
+  area.appendChild(d);area.scrollTop=area.scrollHeight;
+}
+function loaderTorol(){const l=document.getElementById('loader');if(l)l.remove();}
+function impFajlValasztva(inp){
+  const nev=document.getElementById('imp-fajl-nev');
+  if(!nev)return;
+  if(inp.files&&inp.files[0]){
+    nev.textContent='📄 '+inp.files[0].name;
+    nev.className='imp-fajl-nev van';
+  }else{
+    nev.textContent='';
+    nev.className='imp-fajl-nev';
+  }
+}
+function getSessionHorgonyok(){
+  const val=document.getElementById('session-horgony').value.trim();
+  if(!val)return[];
+  return val.split(/\s+/).filter(t=>t.startsWith('@')).map(t=>t.slice(1)).filter(Boolean);
+}
+function sessionHorgonyFrissit(){
+  const h=getSessionHorgonyok();
+  const x=document.getElementById('session-horgony-x');
+  if(x)x.style.display=h.length?'':'none';
+}
+function sessionHorgonyTorol(){
+  document.getElementById('session-horgony').value='';
+  sessionHorgonyFrissit();
+}
+async function autoMent(k,v,model){
+  if(!memexBe)return false;
+  const f=parseInt(document.getElementById('auto-fontossag').value);
+  const sessionH=getSessionHorgonyok();
+  const horgonyok=['chat',...sessionH];
+  try{
+    await apiFetch('/bejegyez',{method:'POST',body:JSON.stringify({tartalom:`K: ${k}`,horgonyok,fontossag:4,iro:'human'})});
+    await apiFetch('/bejegyez',{method:'POST',body:JSON.stringify({tartalom:`V: ${v.slice(0,500)}`,horgonyok,fontossag:f,iro:model||'ai'})});
+    return true;
+  }catch(e){return false;}
+}
+async function kuld(){
+  const inp=document.getElementById('user-input');
+  let sz=inp.value.trim();if(!sz)return;
+  let routing=prefixToRouting();
+  if(sz.startsWith('@')){sz=sz.slice(1).trim();routing='ai';prefixSet('ai');}
+  else if(sz.startsWith('&')){sz=sz.slice(1).trim();routing='both';prefixSet('mix');}
+  if(!sz)return;
+  const btn=document.getElementById('send-btn');
+  btn.disabled=true;inp.value='';
+  uzenetHozzaad(sz,'human');loaderMutat();
+  const api=document.getElementById('api-type').value;
+  const model=selModel;
+  try{
+    const sp=localStorage.getItem('mx_sysprompt')||'';
+    const d=await apiFetch('/kerdes',{method:'POST',body:JSON.stringify({kerdes:sz,api,model,routing,...(sp?{rendszer_prompt:sp}:{})})});
+    loaderTorol();
+    let sections=null;
+    if(d.db_valasz&&d.ai_valasz){
+      sections=[
+        {szoveg:d.db_valasz,label:'🗄 DB',rc:'r-db'},
+        {szoveg:d.ai_valasz,label:'🤖 AI',rc:'r-ai'}
+      ];
+    }else if(d.db_valasz){
+      sections=[{szoveg:d.db_valasz,label:'🗄 DB',rc:'r-db'}];
+    }else if(d.ai_valasz&&!d.db_valasz&&d.routing==='both'){
+      sections=[{szoveg:d.ai_valasz,label:'🤖 AI',rc:'r-ai'}];
+    }
+    const sid=uzenetHozzaad(d.valasz,'ai',model||api,d.routing||routing,sections);
+    if(d.sources&&d.sources.length){
+      const msgDiv=document.getElementById('chat-area').lastElementChild;
+      const srcDiv=document.createElement('div');srcDiv.className='web-sources';
+      srcDiv.innerHTML='🌐 '+d.sources.map(s=>`<a href="${s.url}" target="_blank" rel="noopener">${s.title}</a>`).join(' · ');
+      msgDiv.querySelector('div').appendChild(srcDiv);
+    }
+    if(memexBe){
+      const ok=await autoMent(sz,d.valasz,model||api);
+      if(ok){const el=document.getElementById(sid);if(el){el.textContent='💾';el.classList.add('vis');}statFrissit();}
+    }
+  }catch(e){loaderTorol();uzenetHozzaad('Hiba: '+e.message,'ai','','');}
+  btn.disabled=false;inp.focus();
+}
+function fontSet(n){
+  fontossag=n;
+  [1,2,3,4].forEach(i=>document.getElementById('f'+i).className='f-btn'+(i===n?` sel-${n}`:''));
+}
+/* ══════════ DARABOLÓ ══════════ */
+function szovegDarabol(szoveg,maxLen=500){
+  const paras=szoveg.split(/\n\s*\n/).map(p=>p.trim()).filter(p=>p.length>0);
+  const chunks=[];let cur='';
+  for(const para of paras){
+    if(para.length>maxLen){
+      if(cur){chunks.push(cur.trim());cur='';}
+      const sents=para.match(/[^.!?]+[.!?]+\s*/g)||[para];
+      let sub='';
+      for(const s of sents){
+        if((sub+s).length>maxLen&&sub){chunks.push(sub.trim());sub=s;}
+        else sub+=s;
+      }
+      if(sub.trim())chunks.push(sub.trim());
+    }else if(cur&&(cur+'\n\n'+para).length>maxLen){
+      chunks.push(cur.trim());cur=para;
+    }else{cur=cur?cur+'\n\n'+para:para;}
+  }
+  if(cur.trim())chunks.push(cur.trim());
+  return chunks.length?chunks:[szoveg];
+}
+async function darabolvaBeMent(szoveg,horgonyok,fSzint,tipus){
+  const chunks=szovegDarabol(szoveg);
+  for(const chunk of chunks)
+    await apiFetch('/bejegyez',{method:'POST',body:JSON.stringify({tartalom:chunk,horgonyok,fontossag:fSzint,tipus,iro:'human'})});
+  return chunks.length;
+}
+async function bejDarabol(){
+  const tartalom=document.getElementById('bej-tartalom').value.trim();if(!tartalom)return;
+  const horgonyok=document.getElementById('bej-horgonyok').value.trim().split(/[,\s]+/).filter(Boolean);
+  const tipus=document.getElementById('bej-tipus').value;
+  const fl=document.getElementById('chunk-flash');fl.textContent='…';
+  const btn=document.getElementById('b-chunk');btn.disabled=true;
+  try{
+    const n=await darabolvaBeMent(tartalom,horgonyok,fontossag,tipus);
+    document.getElementById('bej-tartalom').value='';
+    document.getElementById('bej-horgonyok').value='';
+    fontSet(3);
+    fl.textContent=tr('chunk_done').replace('{n}',n);
+    setTimeout(()=>fl.textContent='',3000);
+    statFrissit();
+  }catch(e){fl.textContent='Hiba: '+e.message;}
+  btn.disabled=false;
+}
+
+async function bejMent(){
+  const tartalom=document.getElementById('bej-tartalom').value.trim();if(!tartalom)return;
+  const horgonyok=document.getElementById('bej-horgonyok').value.trim().split(/[,\s]+/).filter(Boolean);
+  const tipus=document.getElementById('bej-tipus').value;
+  try{
+    const d=await apiFetch('/bejegyez',{method:'POST',body:JSON.stringify({tartalom,horgonyok,fontossag,tipus,iro:'human'})});
+    const fl=document.getElementById('mentve-flash');
+    fl.textContent=`${tr('saved')} #${d.sorszam}`;fl.style.display='block';
+    setTimeout(()=>fl.style.display='none',3000);
+    document.getElementById('bej-tartalom').value='';
+    document.getElementById('bej-horgonyok').value='';
+    fontSet(3);
+  }catch(e){alert('Hiba: '+e.message);}
+}
+async function keresFutat(){
+  const q=document.getElementById('keres-q').value.trim();if(!q)return;
+  const iro=document.getElementById('keres-iro').value;
+  const lista=document.getElementById('talalat-lista');
+  lista.innerHTML=`<div class="small">${tr('searching')}</div>`;
+  try{
+    let url=`/keres?q=${encodeURIComponent(q)}&limit=20`;
+    if(iro&&iro!=='ai')url+=`&iro=${encodeURIComponent(iro)}`;
+    const d=await apiFetch(url);
+    let talalatok=d.talalatok||[];
+    if(iro==='ai')talalatok=talalatok.filter(t=>t.iro&&t.iro!=='human');
+    if(!talalatok.length){lista.innerHTML=`<div class="small">${tr('no_result')}</div>`;return;}
+    lista.innerHTML='';
+    for(const t of talalatok){
+      const isH=!t.iro||t.iro==='human';
+      const ikon=['','🔴','🟡','🟢','⚪'][t.fontossag||3];
+      const div=document.createElement('div');div.className='talalat-item';
+      div.innerHTML=`<div class="talalat-meta">
+        <span>${t.idobelyeg?.slice(0,10)||'?'}</span>
+        <span class="${isH?'iro-h':'iro-ai'}">${t.iro||'human'}</span>
+        ${t.tipus?`<span>${t.tipus}</span>`:''}
+        <span style="margin-left:auto">${ikon}</span>
+      </div><div class="talalat-szoveg">${t.tartalom}</div>`;
+      lista.appendChild(div);
+    }
+  }catch(e){lista.innerHTML=`<div class="small" style="color:var(--red)">Hiba: ${e.message}</div>`;}
+}
+async function exportFutat(){
+  const er=document.getElementById('exp-eredmeny');er.textContent='…';
+  const jelszo=document.getElementById('exp-jelszo').value||'';
+  try{
+    const d=await apiFetch('/export',{method:'POST',body:JSON.stringify({jelszo})});
+    if(d.status==='ok'){
+      er.innerHTML=`✓ <a href="${apiUrl(d.letoltes)}" download="${d.fajl}" style="color:var(--accent)">⬇ ${d.fajl} (${d.meret_kb}KB)</a>`;
+      exportListaFrissit();
+    }else er.textContent='✗ '+d.uzenet;
+  }catch(e){er.textContent='Hiba: '+e.message;}
+}
+async function importFutat(eroszak){
+  const fi=document.getElementById('imp-fajl');
+  if(!fi.files.length){alert('Válassz fájlt!');return;}
+  const er=document.getElementById('imp-eredmeny');er.textContent='…';
+  const jelszo=document.getElementById('imp-jelszo').value||'';
+  const fd=new FormData();fd.append('fajl',fi.files[0]);
+  try{
+    const r=await fetch(apiUrl(`/import?eroszak=${eroszak}&jelszo=${encodeURIComponent(jelszo)}`),{method:'POST',body:fd});
+    const d=await r.json();
+    er.textContent=d.status==='ok'?'✓ '+d.uzenet:'✗ '+d.uzenet;
+  }catch(e){er.textContent='Hiba: '+e.message;}
+}
+async function ujAdatbazis(){
+  if(!confirm('Biztosan törölsz minden bejegyzést és új adatbázist indítasz?'))return;
+  const er=document.getElementById('uj-eredmeny');er.textContent='…';
+  try{
+    const d=await apiFetch('/uj_adatbazis',{method:'POST'});
+    er.textContent=d.status==='ok'?'✓ '+d.uzenet:'✗ '+d.uzenet;
+    if(d.status==='ok')statFrissit();
+  }catch(e){er.textContent='Hiba: '+e.message;}
+}
+async function exportListaFrissit(){
+  try{
+    const d=await apiFetch('/export_lista');
+    const lista=document.getElementById('export-lista');
+    lista.innerHTML=d.exportok?.length
+      ?d.exportok.map(e=>`<div class="exp-lista-item"><span>${e.nev} <span class="small">${e.meret_kb}KB</span></span><a href="${apiUrl(e.letoltes)}" download="${e.nev}">⬇</a></div>`).join('')
+      :`<div class="small">${tr('no_exp')}</div>`;
+  }catch(e){}
+}
+async function uuidLeker(){
+  try{
+    const d=await apiFetch('/uuid');
+    const b=document.getElementById('uuid-box');if(b)b.textContent=d.uuid;
+    const e=document.getElementById('uuid-exp');if(e)e.textContent=d.uuid;
+  }catch(e){}
+}
+
+/* ══════════ PARANCSOK & SYSTEM PROMPT ══════════ */
+const PCMD_ALAP=[
+  {on:true,  emoji:'☁️', text:'Milyen az időjárás most?'},
+  {on:true,  emoji:'📰', text:'Mik a mai legfontosabb hírek?'},
+  {on:true,  emoji:'⚽', text:'Milyen friss sporthíreket találsz az elmúlt 24 órában?'},
+  {on:false, emoji:'🎬', text:'Mik a legjobb filmek most a mozikban?'},
+  {on:false, emoji:'🎵', text:'Mik a legjobb zenék a toplistán most?'},
+  {on:false, emoji:'💹', text:'Hogyan teljesítenek a főbb tőzsdék ma?'},
+  {on:false, emoji:'🌍', text:'Mik a legfontosabb világesemények ma?'},
+  {on:false, emoji:'🔬', text:'Milyen érdekes tudományos felfedezések történtek mostanában?'},
+  {on:false, emoji:'💻', text:'Mik a legfrissebb tech hírek?'},
+  {on:false, emoji:'🍕', text:'Javasolj egy gyors receptet mára!'},
+];
+let pcmdData=[];
+function parancsokBetolt(){
+  const raw=localStorage.getItem('mx_pcmds');
+  if(raw){try{pcmdData=JSON.parse(raw);}catch(e){pcmdData=PCMD_ALAP.map(x=>({...x}));}}
+  else pcmdData=PCMD_ALAP.map(x=>({...x}));
+}
+function _pcmdSzovegekMentDOMbol(){
+  document.querySelectorAll('.pcmd-item').forEach((el,i)=>{
+    if(pcmdData[i]) pcmdData[i].text=el.querySelector('.pcmd-text').value;
+  });
+}
+function parancsokMent(ev){
+  _pcmdSzovegekMentDOMbol();
+  localStorage.setItem('mx_pcmds',JSON.stringify(pcmdData));
+  quickBarFrissit();
+  const btn=ev?ev.currentTarget:null;
+  if(btn){const o=btn.textContent;btn.textContent='✓ Elmentve!';setTimeout(()=>btn.textContent=o,1500);}
+}
+function pcmdToggle(i){
+  _pcmdSzovegekMentDOMbol();
+  pcmdData[i].on=!pcmdData[i].on;
+  localStorage.setItem('mx_pcmds',JSON.stringify(pcmdData));
+  parancsokRajzol();
+  quickBarFrissit();
+}
+function parancsokRajzol(){
+  const grid=document.getElementById('pcmd-grid');if(!grid)return;
+  grid.innerHTML='';
+  pcmdData.forEach((cmd,i)=>{
+    const div=document.createElement('div');
+    div.className='pcmd-item'+(cmd.on?' on':'');
+    div.innerHTML=`
+      <span class="pcmd-toggle" onclick="pcmdToggle(${i})" title="${cmd.on?'Bekapcsolt – kattints a kikapcsoláshoz':'Kikapcsolt – kattints a bekapcsoláshoz'}">${cmd.on?'✅':'⬜'}</span>
+      <span class="pcmd-emoji">${cmd.emoji}</span>
+      <input class="pcmd-text" type="text" value="${cmd.text.replace(/"/g,'&quot;')}" placeholder="${tr('pcmd_ph')}">
+    `;
+    grid.appendChild(div);
+  });
+}
+function quickBarFrissit(){
+  const bar=document.getElementById('quick-bar');if(!bar)return;
+  bar.innerHTML='';
+  const aktiv=pcmdData.filter(c=>c.on);
+  aktiv.forEach(cmd=>{
+    const btn=document.createElement('button');
+    btn.className='qcmd-btn';
+    const label=cmd.text.length>32?cmd.text.slice(0,32)+'…':cmd.text;
+    btn.innerHTML=cmd.emoji;
+    btn.title=cmd.text.length>60?cmd.text.slice(0,60)+'…':cmd.text;
+    btn.onclick=()=>cmdKuld(cmd.text);
+    bar.appendChild(btn);
+  });
+  bar.classList.toggle('has-items',aktiv.length>0);
+}
+async function cmdKuld(szoveg){
+  tabValt('chat');
+  const inp=document.getElementById('user-input');
+  inp.value=szoveg;
+  await kuld();
+}
+function syspromptMent(){
+  const ta=document.getElementById('sysprompt-ta');
+  localStorage.setItem('mx_sysprompt',ta.value.trim());
+  const fl=document.getElementById('sysprompt-flash');
+  fl.innerHTML='<span style="color:var(--green)">✓ Elmentve</span>';
+  setTimeout(()=>fl.textContent='',2000);
+}
+function syspromptTorol(){
+  localStorage.removeItem('mx_sysprompt');
+  document.getElementById('sysprompt-ta').value='';
+  const fl=document.getElementById('sysprompt-flash');
+  fl.innerHTML='<span style="color:var(--orange)">🗑 Törölve</span>';
+  setTimeout(()=>fl.textContent='',2000);
+}
+// Init
+parancsokBetolt();
+parancsokRajzol();
+quickBarFrissit();
+const _sp=localStorage.getItem('mx_sysprompt');
+if(_sp){const ta=document.getElementById('sysprompt-ta');if(ta)ta.value=_sp;}
+
+tesztelKapcsolat();
+</script>
+</body>
+</html>

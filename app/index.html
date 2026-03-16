@@ -1,0 +1,2582 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Memex">
+<meta name="theme-color" content="#161b22">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon.svg">
+<title>Memex Paim</title>
+<script>
+if('serviceWorker'in navigator){
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    // Új verzió detektálás
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          const badge = document.getElementById('update-badge');
+          if (badge) badge.style.display = 'inline-block';
+        }
+      });
+    });
+    // Óránként ellenőriz
+    setInterval(() => reg.update(), 60 * 60 * 1000);
+  }).catch(()=>{});
+  // Ha az új SW átveszi az irányítást (skipWaiting után) → badge megjelenik
+  let frissitesVolt = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (frissitesVolt) return;
+    frissitesVolt = true;
+    const badge = document.getElementById('update-badge');
+    if (badge) badge.style.display = 'inline-block';
+  });
+  // Láthatóvá válásnál is ellenőriz
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      navigator.serviceWorker.getRegistration().then(reg => reg && reg.update());
+    }
+  });
+}
+// Sidebar FOUC megelőzés – még renderelés előtt alkalmazzuk
+if(localStorage.getItem('mx_sidebar')==='false'){
+  document.documentElement.setAttribute('data-nosidebar','1');
+}
+</script>
+<style>
+:root{--bg0:#0d1117;--bg1:#161b22;--bg2:#21262d;--border:#30363d;--text:#c9d1d9;--text2:#8b949e;--accent:#58a6ff;--green:#3fb950;--purple:#a371f7;--red:#f85149;--orange:#d29922;}
+[data-skin="light"]{--bg0:#f6f8fa;--bg1:#ffffff;--bg2:#eaeef2;--border:#d0d7de;--text:#1f2328;--text2:#636c76;--accent:#0969da;--green:#1a7f37;--purple:#8250df;--red:#d1242f;--orange:#9a6700;}
+[data-skin="forest"]{--bg0:#0b1a12;--bg1:#112219;--bg2:#1e3a28;--border:#2a5040;--text:#c8e8cc;--text2:#6a9870;--accent:#56d364;--green:#56d364;--purple:#7ee787;--red:#f85149;--orange:#e3b341;}
+[data-skin="ocean"]{--bg0:#050e1a;--bg1:#0a1628;--bg2:#0e2040;--border:#1a3060;--text:#aecbf0;--text2:#5080a8;--accent:#4d9fec;--green:#1abc9c;--purple:#7c8ef7;--red:#e74c3c;--orange:#e67e22;}
+[data-skin="amber"]{--bg0:#0f0d00;--bg1:#1a1800;--bg2:#272200;--border:#3a3200;--text:#f0e0a0;--text2:#907840;--accent:#f0a500;--green:#7cb518;--purple:#c9a227;--red:#e74c3c;--orange:#f0a500;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:monospace;background:var(--bg0);color:var(--text);min-height:100dvh;height:100dvh;overflow:hidden;}
+header{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 10px;display:flex;align-items:center;gap:8px;height:40px;flex-shrink:0;}
+.hbtn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:4px 6px;border-radius:4px;line-height:1;}
+.hbtn:hover{color:var(--text);background:var(--bg2);}
+header h1{font-size:0.95rem;color:var(--accent);white-space:nowrap;}
+.conn-info{font-size:0.7rem;color:var(--text2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dot-ok{color:var(--green);}.dot-err{color:var(--red);}.dot-warn{color:var(--orange);}
+.header-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.memex-toggle{display:flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border);padding:3px 9px;border-radius:14px;cursor:pointer;user-select:none;}
+.memex-toggle.on{border-color:var(--green);}
+.toggle-dot{width:6px;height:6px;border-radius:50%;background:var(--text2);}
+.memex-toggle.on .toggle-dot{background:var(--green);}
+.toggle-label{font-size:0.68rem;color:var(--text2);}
+.memex-toggle.on .toggle-label{color:var(--green);}
+.skin-dots{display:flex;gap:3px;align-items:center;}
+.sdot{width:12px;height:12px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border 0.15s;}
+.sdot:hover,.sdot.on{border-color:var(--text);}
+.layout{display:flex;height:calc(100dvh - 40px);}
+.sidebar{width:230px;min-width:230px;background:var(--bg1);border-right:1px solid var(--border);padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:0;transition:width 0.2s,min-width 0.2s,padding 0.2s,opacity 0.15s;}
+.sidebar.hidden{width:0;min-width:0;padding:0;opacity:0;overflow:hidden;}
+[data-nosidebar="1"] #sidebar{width:0;min-width:0;padding:0;opacity:0;overflow:hidden;}
+.divider{border:none;border-top:1px solid var(--border);margin:4px 0;}
+.acc{display:flex;flex-direction:column;}
+.acc-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:5px 2px;border-radius:4px;}
+.acc-hdr:hover .section-title{color:var(--accent);}
+.acc-arrow{font-size:0.55rem;color:var(--text2);transition:transform 0.18s;flex-shrink:0;margin-left:4px;}
+.acc-arrow.open{transform:rotate(90deg);}
+.acc-body{overflow:hidden;transition:max-height 0.25s ease,opacity 0.2s;max-height:900px;opacity:1;}
+.acc-body.closed{max-height:0;opacity:0;}
+.acc-inner{display:flex;flex-direction:column;gap:6px;padding:4px 0 6px 0;}
+.chat-sess-list{display:flex;flex-direction:column;gap:1px;max-height:220px;overflow-y:auto;}
+.chat-sess-item{display:flex;align-items:center;gap:2px;padding:4px 6px;border-radius:6px;cursor:pointer;border-left:2px solid transparent;}
+.chat-sess-item:hover{background:var(--bg2);}
+.chat-sess-item.active{background:var(--bg2);border-left-color:var(--accent);}
+.chat-sess-name{flex:1;font-size:0.74rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.chat-sess-name-input{flex:1;font-size:0.74rem;background:var(--bg2);border:1px solid var(--accent);border-radius:3px;color:var(--text);padding:1px 4px;outline:none;min-width:0;}
+.chat-sess-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.7rem;padding:0 2px;opacity:0.5;flex-shrink:0;line-height:1;}
+.chat-sess-btn:hover{opacity:1;color:var(--accent);}
+.chat-sess-del:hover{color:var(--red) !important;}
+.section-title{font-size:0.63rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;}
+label{font-size:0.76rem;color:var(--text2);display:block;margin-bottom:2px;}
+input,select,textarea{width:100%;background:var(--bg0);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:monospace;font-size:0.78rem;outline:none;transition:border 0.15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+input[type="password"]{letter-spacing:2px;}
+.btn{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.76rem;width:100%;transition:border-color 0.15s;}
+.btn:hover{border-color:var(--accent);}
+.btn-green{border-color:var(--green);color:var(--green);}
+.btn-green:hover{background:rgba(63,185,80,0.08);}
+.small{font-size:0.7rem;color:var(--text2);}
+.stat-sor{display:flex;gap:10px;font-size:0.72rem;color:var(--text2);}
+.stat-sor span{color:var(--text);font-weight:bold;}
+.api-aktiv{font-size:0.66rem;color:var(--green);padding:1px 5px;border:1px solid var(--green);border-radius:6px;display:inline-block;}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.tabs{display:flex;background:var(--bg1);border-bottom:1px solid var(--border);padding:0 12px;flex-shrink:0;}
+.tab{padding:8px 12px;font-size:0.78rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);transition:all 0.15s;user-select:none;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.tab-panel.active{display:flex;}
+.chat-area{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:11px;}
+.msg{display:flex;gap:8px;max-width:820px;}
+.msg.human{align-self:flex-end;flex-direction:row-reverse;}
+.msg.ai{align-self:flex-start;}
+.av{width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:bold;flex-shrink:0;}
+.av.h{color:#58a6ff;}.av.a{color:#58a6ff;}
+.bubble{background:var(--bg1);border:1px solid var(--border);padding:7px 11px;border-radius:8px;font-size:0.82rem;line-height:1.6;max-width:600px;white-space:pre-wrap;color:var(--text);}
+.msg.human .bubble{background:#1f3a5f;border-color:#1f6feb;}
+[data-skin="light"] .msg.human .bubble{background:#dbeafe;border-color:#93c5fd;}
+.meta{font-size:0.65rem;color:var(--text2);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.rtag{font-size:0.6rem;padding:1px 5px;border-radius:7px;border:1px solid;font-weight:bold;}
+.r-db{border-color:var(--accent);color:var(--accent);}
+.r-ai{border-color:var(--purple);color:var(--purple);}
+.r-mix{border-color:var(--green);color:var(--green);}
+.typing{display:flex;gap:4px;padding:3px 0;}
+.typing span{width:5px;height:5px;background:var(--accent);border-radius:50%;animation:bounce 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:0.2s;}
+.typing span:nth-child(3){animation-delay:0.4s;}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.input-row{border-top:1px solid var(--border);background:var(--bg1);flex-shrink:0;}
+.prefix-sor{display:flex;gap:5px;padding:6px 12px 2px;}
+.pfx{padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:monospace;font-size:0.7rem;user-select:none;}
+.pfx.p-db{border-color:var(--accent);color:var(--accent);}
+.pfx.p-ai{border-color:var(--purple);color:var(--purple);}
+.pfx.p-mix{border-color:var(--green);color:var(--green);}
+.pfx.p-agent{border-color:var(--orange);color:var(--orange);}
+.prefix-hint{font-size:0.65rem;color:var(--text2);padding:0 12px 2px;}
+.input-sor{display:flex;gap:6px;padding:3px 12px 9px;}
+.input-sor textarea{flex:1;resize:none;height:46px;}
+.send-btn{background:var(--accent);border:none;color:#fff;padding:0 13px;border-radius:4px;cursor:pointer;font-size:0.83rem;height:46px;}
+.send-btn:hover{opacity:0.85;}
+.send-btn:disabled{background:var(--bg2);color:var(--text2);cursor:default;}
+.mic-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:0 10px;border-radius:4px;cursor:pointer;font-size:1rem;height:46px;transition:all 0.2s;}
+.mic-btn.recording{border-color:var(--red);color:var(--red);animation:mic-pulse 1s infinite;}
+@keyframes mic-pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.kereses-panel{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+.kereses-sor{display:flex;gap:5px;}
+.kereses-sor input{flex:1;}
+.talalat-lista{display:flex;flex-direction:column;gap:5px;}
+.talalat-item{background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 11px;}
+.talalat-item:hover{border-color:var(--accent);}
+.talalat-meta{font-size:0.68rem;color:var(--text2);margin-bottom:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.talalat-szoveg{font-size:0.8rem;}
+.kapcsolodo-btn{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text2);font-size:0.65rem;padding:1px 5px;cursor:pointer;margin-left:auto;}
+.kapcsolodo-btn:hover{border-color:var(--accent);color:var(--accent);}
+.kapcsolodo-lista{margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);display:flex;flex-direction:column;gap:4px;}
+.kapcsolodo-item{font-size:0.75rem;color:var(--text2);padding:3px 6px;border-left:2px solid var(--border);}
+.ido-hint{font-size:0.7rem;color:var(--accent);padding:2px 0 4px;}
+.iro-h{color:var(--accent);}.iro-ai{color:var(--purple);}
+.bej-panel{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;}
+.bej-panel textarea{height:110px;resize:vertical;}
+.f-sor{display:flex;gap:4px;}
+.f-btn{flex:1;padding:5px 2px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:monospace;font-size:0.7rem;text-align:center;}
+.f-btn.sel-1{border-color:var(--red);color:var(--red);}
+.f-btn.sel-2{border-color:var(--orange);color:var(--orange);}
+.f-btn.sel-3{border-color:var(--green);color:var(--green);}
+.f-btn.sel-4{border-color:var(--text2);color:var(--text2);}
+.mentve-flash{font-size:0.72rem;color:var(--green);display:none;}
+.export-panel{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.exp-box{display:flex;flex-direction:column;gap:7px;}
+.exp-box h3{font-size:0.78rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;}
+.db-info-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:0.75rem;color:var(--text2);display:flex;flex-direction:column;gap:3px;}
+.db-info-box .db-free{color:var(--green);font-weight:bold;}
+.db-info-box .db-paid{color:var(--orange);}
+.imp-fajl-btn{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:8px 12px;cursor:pointer;font-family:monospace;font-size:0.78rem;width:100%;transition:border-color 0.15s;}
+.imp-fajl-btn:hover{border-color:var(--accent);}
+.imp-fajl-nev{font-size:0.7rem;color:var(--text2);padding:2px 0 0 2px;min-height:1em;}
+.imp-fajl-nev.van{color:var(--green);}
+input[type=file]#imp-fajl{display:none;}
+.session-horgony-wrap{display:flex;align-items:center;gap:3px;margin-top:4px;}
+.session-horgony-inp{background:none;border:none;color:var(--orange);font-family:monospace;font-size:0.72rem;width:100%;outline:none;padding:1px 2px;min-width:0;}
+.session-horgony-inp::placeholder{color:var(--text2);}
+.session-horgony-x{background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.8rem;padding:0 2px;display:none;flex-shrink:0;}
+.session-horgony-x:hover{color:var(--orange);}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.ov-box{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:22px 26px;max-width:480px;width:90%;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.help-close{align-self:flex-end;background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;padding:3px 10px;border-radius:4px;font-family:monospace;font-size:0.75rem;}
+.help-close:hover{border-color:var(--accent);color:var(--text);}
+.help-title{font-size:1.1rem;color:var(--accent);font-weight:bold;}
+.help-section{display:flex;flex-direction:column;gap:5px;}
+.help-section h3{font-size:0.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:3px;}
+.help-section p,.help-section li{font-size:0.8rem;line-height:1.6;color:var(--text);}
+.help-section ul{padding-left:16px;}
+.offline-badge{font-size:0.68rem;color:var(--green);padding:2px 8px;border:1px solid var(--green);border-radius:10px;background:rgba(63,185,80,0.08);}
+</style>
+</head>
+<body>
+
+<!-- Help overlay -->
+<div class="overlay" id="help-overlay" onclick="if(event.target===this)helpZar()">
+  <div class="ov-box">
+    <button class="help-close" onclick="helpZar()" id="help-close">✕ Bezár</button>
+    <div class="help-title">⬡ Memex Paim</div>
+    <div style="font-size:0.82rem;color:var(--green);font-style:italic;" id="help-tagline">Az AI elfelejt. Az adatbázis emlékszik.</div>
+    <div class="help-section">
+      <h3 id="help-h1">Offline PWA</h3>
+      <p id="help-p1">Az adatod a telefonon van – nincs szerver, nincs felhő. Internet csak az AI válaszokhoz kell (Claude / Gemini API kulcs). Az adatbázis az eszközödön marad örökre.</p>
+    </div>
+    <div class="help-section">
+      <h3 id="help-h2">AI beállítás</h3>
+      <p id="help-p2">Adj meg egy API kulcsot az oldalsávban:<br>
+      • <b>Gemini</b>: ingyenes Google fiókkal – <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--green)">aistudio.google.com → Get API key</a><br>
+      • <b>Claude</b>: <a href="https://console.anthropic.com/" target="_blank" rel="noopener" style="color:var(--green)">console.anthropic.com</a> – fizetős<br>
+      A kulcs csak a telefonodon tárolódik.</p>
+    </div>
+    <div class="help-section">
+      <h3 id="help-h3">Chat módok</h3>
+      <ul>
+        <li id="help-li1">🗄 <b>DB</b> – saját adatbázisodból keres</li>
+        <li id="help-li2">🤖 <b>AI</b> – csak AI tudásából válaszol</li>
+        <li id="help-li3">🎤 Voice input – tap mic, saved with @voice</li>
+      </ul>
+    </div>
+    <div class="help-section">
+      <h3 id="help-h4">Export / Import</h3>
+      <p id="help-p4">Biztonsági mentés fájlba. Jelszó opcionális – ha elfelejted, az export fájl olvashatatlan lesz, de az adatbázisod a telefonon megmarad.</p>
+    </div>
+    <div style="font-size:0.68rem;color:var(--text2);text-align:center;margin-top:4px;">Memex Paim v1.0 · Offline PWA · memexpaim.com</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <button class="hbtn" onclick="sidebarToggle()">☰</button>
+  <h1>Memex Paim</h1>
+  <div class="conn-info" id="conn-info">
+    <span id="conn-dot" class="dot-warn">●</span>
+    <span id="conn-text"> Betölt…</span>
+    <span id="token-kijelzo" style="display:none;margin-left:10px;font-size:0.68rem;color:var(--text2);letter-spacing:0.5px;"></span>
+  </div>
+  <div class="header-right">
+    <button id="update-badge" onclick="location.reload()" style="display:none;font-size:0.65rem;background:var(--orange);color:#fff;border:none;border-radius:10px;padding:2px 8px;cursor:pointer;animation:mic-pulse 2s infinite;" title="New version available">🆕 Update</button>
+    <div class="memex-toggle on" id="memex-toggle" onclick="memexToggle()">
+      <div class="toggle-dot"></div>
+      <span class="toggle-label" id="toggle-label">BE</span>
+    </div>
+    <button class="hbtn" onclick="helpNyit()" title="Segítség">❓</button>
+  </div>
+</header>
+
+<div class="layout">
+<div class="sidebar" id="sidebar">
+
+  <!-- AI -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('ai')">
+      <span class="section-title" id="s-ai">🤖 AI</span>
+      <span class="acc-arrow open" id="arr-ai">▶</span>
+    </div>
+    <div class="acc-body" id="acc-ai">
+      <div class="acc-inner">
+        <div id="kulcs-figyelmeztet" class="small" style="color:var(--orange);display:none;">⚠ Add meg az API kulcsodat!</div>
+        <div class="small"><span id="l-aktiv">Aktív</span>: <span id="api-aktiv" class="api-aktiv">–</span></div>
+        <div>
+          <label id="l-api-tipus">API típus</label>
+          <select id="api-type">
+            <option value="gemini" id="opt-gemini">Gemini (Google – ingyenes)</option>
+            <option value="claude" id="opt-claude">Claude (Anthropic – fizetős)</option>
+            <option value="offline">🚫 Offline (AI nélkül)</option>
+          </select>
+        </div>
+        <div id="kulcs-block">
+          <label id="l-api-kulcs">API kulcs</label>
+          <input id="api-key" type="password" placeholder="AIza… / sk-ant-…">
+          <button class="btn btn-green" style="margin-top:4px;" onclick="kulcsMent()" id="btn-mentes">💾 Mentés</button>
+          <div id="kulcs-info" class="small" style="margin-top:3px;"></div>
+        </div>
+        <div id="model-block">
+          <label id="l-modell">Modell</label>
+          <select id="model-select"></select>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- DB -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('db')">
+      <span class="section-title" id="s-db">🗄 Adatbázis</span>
+      <span class="acc-arrow open" id="arr-db">▶</span>
+    </div>
+    <div class="acc-body" id="acc-db">
+      <div class="acc-inner">
+        <div class="stat-sor">
+          <div><span id="l-osszes">Összes</span>: <span id="stat-ossz">–</span></div>
+          <div><span id="l-human">Human</span>: <span id="stat-human">–</span></div>
+          <div>AI: <span id="stat-ai">–</span></div>
+        </div>
+        <div class="small">
+          <a href="#" onclick="statFrissit();return false;" style="color:var(--accent)" id="l-frissit">↻ Frissít</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- AUTO MENTÉS -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('auto')">
+      <span class="section-title" id="s-auto">💾 Auto mentés</span>
+      <span class="acc-arrow open" id="arr-auto">▶</span>
+    </div>
+    <div class="acc-body" id="acc-auto">
+      <div class="acc-inner">
+        <select id="auto-fontossag">
+          <option value="3">🟢 Normál</option>
+          <option value="2">🟡 Fontos</option>
+          <option value="4" selected>⚪ Duma</option>
+        </select>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:2px;">
+          <span style="font-size:0.7rem;color:var(--text2);" id="l-token-show">🪙 Token kijelző</span>
+          <button id="token-show-toggle" onclick="tokenShowToggle()" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;">ON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- MEGJELENÉS -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('look')">
+      <span class="section-title" id="s-look">🎨 Megjelenés</span>
+      <span class="acc-arrow open" id="arr-look">▶</span>
+    </div>
+    <div class="acc-body" id="acc-look">
+      <div class="acc-inner">
+        <div>
+          <label id="l-lang">Nyelv</label>
+          <select id="lang-select">
+            <option value="hu">🇭🇺 Magyar</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="es">🇪🇸 Español</option>
+            <option value="it">🇮🇹 Italiano</option>
+            <option value="pl">🇵🇱 Polski</option>
+            <option value="ro">🇷🇴 Română</option>
+            <option value="sk">🇸🇰 Slovenčina</option>
+            <option value="cs">🇨🇿 Čeština</option>
+            <option value="ru">🇷🇺 Русский</option>
+            <option value="uk">🇺🇦 Українська</option>
+            <option value="zh">🇨🇳 中文</option>
+            <option value="ja">🇯🇵 日本語</option>
+            <option value="ko">🇰🇷 한국어</option>
+            <option value="ar">🇸🇦 العربية</option>
+            <option value="hi">🇮🇳 हिन्दी</option>
+            <option value="tr">🇹🇷 Türkçe</option>
+            <option value="pt">🇵🇹 Português</option>
+            <option value="nl">🇳🇱 Nederlands</option>
+            <option value="sv">🇸🇪 Svenska</option>
+            <option value="id">🇮🇩 Bahasa Indonesia</option>
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+          </select>
+        </div>
+        <div>
+          <label id="l-betumeret">Betűméret</label>
+          <select id="font-size">
+            <option value="11">Micro</option>
+            <option value="14">Kis</option>
+            <option value="16" selected>Normál</option>
+            <option value="18">Nagy</option>
+            <option value="20">Nagyobb</option>
+          </select>
+        </div>
+        <div style="margin-top:6px;">
+          <label>Téma</label>
+          <div class="skin-dots" style="margin-top:4px;">
+            <div class="sdot on"  style="background:#161b22;" onclick="skinSet('')"       title="Sötét"></div>
+            <div class="sdot"     style="background:#f6f8fa;" onclick="skinSet('light')"  title="Világos"></div>
+            <div class="sdot"     style="background:#112219;" onclick="skinSet('forest')" title="Erdő"></div>
+            <div class="sdot"     style="background:#0a1628;" onclick="skinSet('ocean')"  title="Óceán"></div>
+            <div class="sdot"     style="background:#1a1800;" onclick="skinSet('amber')"  title="Borostyán"></div>
+          </div>
+        </div>
+        <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" id="btn-gemini-key" style="font-size:0.7rem;color:var(--green);border:1px solid var(--green);border-radius:6px;padding:5px 8px;text-align:center;text-decoration:none;">🔑 Get free Gemini API key</a>
+          <a href="https://console.anthropic.com/" target="_blank" rel="noopener" id="btn-claude-key" style="font-size:0.7rem;color:var(--text2);border:1px solid var(--text2);border-radius:6px;padding:5px 8px;text-align:center;text-decoration:none;">🔑 Get Claude API key (~$5)</a>
+          <button class="btn" onclick="appFrissit()" id="btn-app-frissit" style="font-size:0.7rem;color:var(--text2);">🔄 App frissítése</button>
+          <button class="btn" onclick="gyariVisszaallitas()" id="btn-gyari" style="font-size:0.7rem;color:var(--red);border-color:var(--red);">⚠ Gyári visszaállítás</button>
+          <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              <span style="font-size:0.7rem;color:var(--text2);" id="l-a2a">🔗 A2A Protocol <span style="font-size:0.6rem;color:var(--orange);border:1px solid var(--orange);border-radius:4px;padding:0 4px;">BETA</span></span>
+              <button id="btn-a2a" onclick="a2aToggle()" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;">OFF</button>
+            </div>
+            <div style="font-size:0.62rem;color:var(--text2);margin-top:3px;line-height:1.4;" id="l-a2a-info">Engedélyezi külső AI ágensek számára az adatbázis olvasását. Csak akkor kapcsold be, ha tudod kivel osztod meg az adataidat.</div>
+            <div style="font-size:0.6rem;color:var(--orange);margin-top:2px;" id="l-a2a-beta">⚠ Kísérleti funkció – előfordulhat hogy nem működik.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- CHAT SESSIONS -->
+  <div class="acc">
+    <div class="acc-hdr" onclick="accToggle('chat-sess')">
+      <span class="section-title" id="s-chat-sess">💬 Chat</span>
+      <span class="acc-arrow open" id="arr-chat-sess">▶</span>
+    </div>
+    <div class="acc-body" id="acc-chat-sess">
+      <div class="acc-inner">
+        <button class="btn btn-green" style="width:100%;font-size:0.75rem;" onclick="ujChatSession()" id="btn-new-chat">+ New Chat</button>
+        <div class="chat-sess-list" id="chat-sess-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<div class="main">
+  <div class="tabs">
+    <div class="tab active" onclick="tabValt('chat')"   id="tab-chat">💬 Chat</div>
+    <div class="tab"        onclick="tabValt('bej')"    id="tab-bej">✏️ Bejegyzés</div>
+    <div class="tab"        onclick="tabValt('keres')"  id="tab-keres">🔍 Keresés</div>
+    <div class="tab"        onclick="tabValt('export')" id="tab-export">📦 Import/Export</div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="tab-panel active" id="tp-chat">
+    <div class="chat-area" id="chat-area">
+      <div class="msg ai">
+        <div class="av a" style="color:#58a6ff;">M</div>
+        <div>
+          <div class="bubble" id="welcome-msg"></div>
+          <div class="meta">Memex</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="prefix-sor">
+        <button class="pfx p-db" id="pfx-db"    onclick="prefixSet('db')"    title="DB">🗄</button>
+        <button class="pfx"      id="pfx-ai"    onclick="prefixSet('ai')"    title="AI">🤖</button>
+        <button class="pfx"      id="pfx-mix"   onclick="prefixSet('mix')"   title="DB+AI" style="display:none">⚡</button>
+        <button class="pfx" id="btn-chunk-toggle" onclick="chunkToggle()" title="Daraboló" style="margin-left:auto;display:none">✂️</button>
+        <button class="pfx"      id="pfx-agent" onclick="prefixSet('agent')" title="Agent" style="display:none">🧠</button>
+      </div>
+      <div class="prefix-hint" id="pfx-hint">DB-ből keres</div>
+      <div class="input-sor">
+        <textarea id="user-input" placeholder="Írj kérdést…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();kuld();}"></textarea>
+        <button class="mic-btn" id="mic-btn" onclick="mikrofon()">🎤</button>
+        <button class="send-btn" id="send-btn" onclick="kuld()">▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BEJEGYZÉS -->
+  <div class="tab-panel" id="tp-bej">
+    <div class="bej-panel">
+      <div><label id="l-tartalom">Tartalom</label>
+        <textarea id="bej-tartalom"></textarea></div>
+      <div><label id="l-horgonyok">Horgonyok</label>
+        <input id="bej-horgonyok" type="text" placeholder="pl. memex, ötlet">
+        <div id="horg-top10" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
+        <div style="margin-top:3px;">
+          <button class="pfx" onclick="horgOsszesToggle()" id="horg-osszes-btn" style="font-size:0.68rem;padding:2px 6px;width:auto;">▾ All anchors</button>
+          <div id="horg-osszes-lista" style="display:none;flex-wrap:wrap;gap:4px;margin-top:4px;max-height:120px;overflow-y:auto;"></div>
+        </div>
+      </div>
+      <div><label id="l-tipus">Típus</label>
+        <select id="bej-tipus">
+          <option value="">auto</option>
+          <option value="!döntés">!döntés</option>
+          <option value="!ötlet">!ötlet</option>
+          <option value="!hiba">!hiba</option>
+          <option value="#python">#python</option>
+          <option value="@projekt">@projekt</option>
+        </select></div>
+      <div><label id="l-fontossag">Fontosság</label>
+        <div class="f-sor">
+          <button class="f-btn" id="f1" onclick="fontSet(1)">🔴 Kritikus</button>
+          <button class="f-btn" id="f2" onclick="fontSet(2)">🟡 Fontos</button>
+          <button class="f-btn sel-3" id="f3" onclick="fontSet(3)">🟢 Normál</button>
+          <button class="f-btn" id="f4" onclick="fontSet(4)">⚪ Duma</button>
+        </div></div>
+      <div class="mentve-flash" id="mentve-flash">✓ Elmentve</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn btn-green" onclick="bejMent()" id="btn-bej-ment">💾 Mentés</button>
+        <span id="chunk-flash" style="font-size:0.72rem;color:var(--green);"></span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:2px;">
+        <label style="font-size:0.7rem;color:var(--text2);" id="l-session-horg">Chat ablak aktív horgony</label>
+        <div class="session-horgony-wrap">
+          <input class="session-horgony-inp" id="session-horgony" type="text"
+            placeholder="@horgony @horgony2 …"
+            oninput="sessionHorgonyFrissit()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+          <button class="session-horgony-x" id="session-horgony-x" onclick="sessionHorgonyTorol()">×</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KERESÉS -->
+  <div class="tab-panel" id="tp-keres">
+    <div class="kereses-panel">
+      <div class="kereses-sor">
+        <input id="keres-q" type="text" placeholder="Keresés…"
+          onkeydown="if(event.key==='Enter')keresFutat()">
+        <button class="btn" style="width:auto;padding:5px 10px;" onclick="keresFutat()">↵</button>
+      </div>
+      <div class="ido-gombok" id="ido-gombok" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0 6px;">
+        <button class="pfx" onclick="idoGomb(this)" data-v="today" id="ido-ma">📅 today</button>
+        <button class="pfx" onclick="idoGomb(this)" data-v="yesterday" id="ido-tegnap">⬅ yesterday</button>
+        <button class="pfx" onclick="idoGomb(this)" data-v="last week" id="ido-het">📆 last week</button>
+        <button class="pfx" onclick="idoGomb(this)" data-v="last month" id="ido-honap">🗓 last month</button>
+        <button class="pfx" onclick="idoGomb(this)" data-v="@voice" id="ido-voice">🎤 @voice</button>
+        <button class="pfx" onclick="osszesMutat()" id="btn-osszes" style="margin-left:auto;">📋 All</button>
+      </div>
+      <div style="font-size:0.68rem;color:var(--text2);padding:2px 0 6px;" id="keres-sugo">Szöveg · @horgony · időszűrő · 🔗 kapcsolódó</div>
+      <div id="keres-stat" style="display:none;font-size:0.72rem;padding:3px 8px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);margin-bottom:4px;color:var(--text2);"></div>
+      <div id="keres-horg-chips" style="display:flex;flex-wrap:wrap;gap:4px;padding:0 0 4px;"></div>
+      <div style="margin-bottom:6px;">
+        <button class="pfx" onclick="keresHorgOsszesToggle()" id="keres-horg-osszes-btn" style="font-size:0.68rem;padding:2px 6px;width:auto;">▾ All anchors</button>
+        <div id="keres-horg-osszes-lista" style="display:none;flex-wrap:wrap;gap:4px;margin-top:4px;max-height:120px;overflow-y:auto;"></div>
+      </div>
+      <div id="talalat-lista" class="talalat-lista">
+        <div class="small" id="keres-tipp">Írj be kifejezést és nyomj Entert.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="tab-panel" id="tp-export">
+    <div class="export-panel">
+      <div class="db-info-box">
+        <span class="db-free" id="l-db-free">✓ 1 adatbázis ingyenes</span>
+        <span style="color:var(--orange);" id="l-db-paid">+ Minden további adatbázis: $1</span>
+        <span id="l-db-sub">Export mindig ingyenes · Az adat a tiéd</span>
+      </div>
+      <div class="exp-box">
+        <h3 id="l-export-h">Export</h3>
+        <input id="exp-jelszo" type="password" placeholder="Jelszó (opcionális)">
+        <div class="small" style="color:var(--text2);margin:-4px 0 4px;" id="l-exp-leiras">🔒 Opcionális. Ha elfelejted: az export fájl olvashatatlan lesz, de az adatbázisod a telefonon megmarad.</div>
+        <button class="btn btn-green" onclick="exportFutat()" id="btn-exp">📦 Export</button>
+        <div id="exp-eredmeny" class="small"></div>
+      </div>
+      <hr class="divider">
+      <div class="exp-box">
+        <h3 id="l-uj-db-h">Új adatbázis</h3>
+        <div class="small" style="color:var(--text2);" id="l-uj-db-leiras">Törli az összes bejegyzést, és üres adatbázissal kezd.</div>
+        <button class="btn" style="border-color:var(--red);color:var(--red);" onclick="ujAdatbazis()" id="btn-uj-db">🗑 Új adatbázis</button>
+        <div id="uj-eredmeny" class="small"></div>
+      </div>
+      <hr class="divider">
+      <div class="exp-box">
+        <h3 id="l-import-h">Import</h3>
+        <div class="small" style="color:var(--orange);" id="l-imp-figy">⚠ Backup automatikusan készül az importálás előtt.</div>
+        <input id="imp-fajl" type="file" accept=".memex" onchange="impFajlValasztva(this)">
+        <button class="imp-fajl-btn" onclick="document.getElementById('imp-fajl').click()">
+          <span style="font-size:1.1rem;">📂</span>
+          <span id="imp-fajl-lbl">Fájl kiválasztása…</span>
+        </button>
+        <div class="imp-fajl-nev" id="imp-fajl-nev"></div>
+        <input id="imp-jelszo" type="password" placeholder="Jelszó (ha volt)">
+        <div class="small" style="color:var(--text2);margin:-4px 0 4px;" id="l-imp-jelszo-info">🔒 Csak akkor kell ha exportáláskor be volt állítva jelszó.</div>
+        <div style="display:flex;gap:5px;">
+          <button class="btn" style="flex:1;" onclick="importFutat(false)" id="btn-imp-same">📥 Ugyanaz</button>
+          <button class="btn" style="flex:1;border-color:var(--red);color:var(--red);" onclick="importFutat(true)" id="btn-imp-new">📱 Új eszköz</button>
+        </div>
+        <div id="imp-eredmeny" class="small"></div>
+      </div>
+      <hr class="divider">
+      <div class="exp-box">
+        <h3 id="l-uuid-h">UUID</h3>
+        <div id="uuid-exp" class="small" style="word-break:break-all;color:var(--text2);">–</div>
+        <button class="btn" onclick="uuidMutat()" id="btn-leker">Lekérés</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script type="module">
+import {
+  dbInit, uuidGet, bejegyez, keres, legutobbi, legfontosabb,
+  statisztika, horgonyLista, horgonyListaOsszes, torol, ujAdatbazis as dbUjAdatbazis,
+  exportMemex, importMemex, systemPromptBuild,
+  sessionLetrehoz, sessionAtnevez, sessionTorol, sessionLista, sessionUzenetek
+} from './memex-db.js';
+
+// ── Globális állapot ───────────────────────────────────────────────────────────
+
+let memexBe = localStorage.getItem('mx_be') !== 'false';
+let aktPrefix = 'db';
+let fontossag = 3;
+let _dbKesz = false;
+let _lastApiTokens = 0;
+
+// ── Token kijelző ─────────────────────────────────────────────────────────────
+
+function tokenMaiNap() { return new Date().toISOString().slice(0, 10); }
+
+function tokenOlvas() {
+  const nap = tokenMaiNap();
+  const tarolt = localStorage.getItem('mx_tokens_nap');
+  if (tarolt !== nap) {
+    localStorage.setItem('mx_tokens_nap', nap);
+    localStorage.setItem('mx_tokens', '0');
+    return 0;
+  }
+  return parseInt(localStorage.getItem('mx_tokens') || '0');
+}
+
+function tokenHozzaad(n) {
+  if (!n) return;
+  const ossz = tokenOlvas() + n;
+  localStorage.setItem('mx_tokens', String(ossz));
+  tokenKijelzoFrissit();
+}
+
+function tokenFormat(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k';
+  return String(n);
+}
+
+function tokenKijelzoFrissit() {
+  const el = document.getElementById('token-kijelzo');
+  if (!el) return;
+  const mutat = localStorage.getItem('mx_token_show') !== 'false';
+  if (!mutat) { el.style.display = 'none'; return; }
+  const n = tokenOlvas();
+  el.textContent = 'T: ' + tokenFormat(n);
+  el.style.display = '';
+}
+
+window.tokenShowToggle = function() {
+  const mutat = localStorage.getItem('mx_token_show') !== 'false';
+  localStorage.setItem('mx_token_show', mutat ? 'false' : 'true');
+  document.getElementById('token-show-toggle').textContent = mutat ? 'OFF' : 'ON';
+  tokenKijelzoFrissit();
+};
+
+// ── Skin ──────────────────────────────────────────────────────────────────────
+
+let aktivSkin = localStorage.getItem('mx_skin') || '';
+window.skinSet = function(s) {
+  aktivSkin = s; localStorage.setItem('mx_skin', s);
+  document.documentElement.setAttribute('data-skin', s);
+  document.querySelectorAll('.sdot').forEach((d, i) =>
+    d.classList.toggle('on', ['','light','forest','ocean','amber'][i] === s));
+};
+skinSet(aktivSkin);
+
+// Cache-buster URL param eltüntetése
+if (location.search.includes('_=')) {
+  history.replaceState(null, '', location.pathname);
+}
+
+// ── App frissítés (SW cache törlés) ───────────────────────────────────────────
+
+window.appFrissit = async function() {
+  const btn = document.getElementById('btn-app-frissit');
+  if (btn) btn.textContent = '⏳ …';
+  try {
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+    }
+    if (typeof caches !== 'undefined') {
+      const keys = await caches.keys();
+      for (const key of keys) await caches.delete(key);
+    }
+  } catch(_) {}
+  // Cache-buster URL – SW sem tudja elfogni
+  location.replace(location.pathname + '?_=' + Date.now());
+};
+
+window.gyariVisszaallitas = async function() {
+  if (!confirm(tr('gyari_confirm'))) return;
+  try {
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+    }
+    if (typeof caches !== 'undefined') {
+      const keys = await caches.keys();
+      for (const key of keys) await caches.delete(key);
+    }
+  } catch(_) {}
+  localStorage.clear();
+  location.replace(location.pathname + '?_=' + Date.now());
+};
+
+// ── Font méret ────────────────────────────────────────────────────────────────
+
+function _fontApply(sz) {
+  let el = document.getElementById('_font_style');
+  if (!el) { el = document.createElement('style'); el.id = '_font_style'; document.head.appendChild(el); }
+  el.textContent = `html { font-size: ${sz}px !important; }`;
+}
+window.fontSizeSet = function(sz) {
+  localStorage.setItem('mx_fontsize', sz);
+  _fontApply(sz);
+};
+(function(){
+  const fs = localStorage.getItem('mx_fontsize') || '16';
+  document.getElementById('font-size').value = fs;
+  _fontApply(fs);
+})();
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
+let sidebarVan = localStorage.getItem('mx_sidebar') !== 'false';
+window.sidebarToggle = function() {
+  sidebarVan = !sidebarVan;
+  localStorage.setItem('mx_sidebar', sidebarVan);
+  document.getElementById('sidebar').classList.toggle('hidden', !sidebarVan);
+  if(sidebarVan) document.documentElement.removeAttribute('data-nosidebar');
+};
+if (!sidebarVan) document.getElementById('sidebar').classList.add('hidden');
+
+// ── Nyelv ─────────────────────────────────────────────────────────────────────
+
+const FORD = {
+  hu: {
+    ai_s:'🤖 AI', db_s:'🗄 Adatbázis', auto_s:'💾 Auto mentés', look:'🎨 Megjelenés',
+    l_lang:'Nyelv', aktiv:'Aktív', api_tipus:'API típus', api_kulcs:'API kulcs',
+    mentes:'💾 Mentés', modell:'Modell', osszes:'Összes', human:'Human',
+    chat:'Chat', bejegyzes:'Bejegyzés', kereses:'Keresés', exp:'Import/Export',
+    tartalom:'Tartalom', horgonyok:'Horgonyok', tipus:'Típus', fontossag:'Fontosság',
+    kuldo:'▶', welcome:'Szia! Válassz módot és kérdezz.\n🗄 DB – adatbázisból\n🤖 AI – csak AI tudásából\n🎤 Hangos bevitel – 🎤 gomb, @voice horgonnyal mentve',
+    hint_db:'DB-ből keres', hint_ai:'Csak AI tudásából', hint_mix:'DB + AI egyszerre', hint_agent:'Pl: "emlékezz hogy..." · "mit tudok a ...ről?" · "mentsd el hogy..."',
+    be:'BE', ki:'KI', keres_ph:'Keresés…', input_ph:'Írj kérdést…', horg_ph:'pl. memex, ötlet',
+    export_h:'Export', import_h:'Import', uj_db:'Új adatbázis', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Ugyanaz', imp_new:'📱 Új eszköz',
+    exp_pw:'Jelszó (opcionális)', imp_pw:'Jelszó (ha volt)',
+    leker:'Lekérés', frissit:'↻ Frissít', betumeret:'Betűméret',
+    mentve:'✓ Elmentve', nincs_tal:'Nincs találat.', betolt:'Betölt…',
+    db_free:'✓ 1 adatbázis ingyenes', db_paid:'+ Minden további adatbázis: $1',
+    db_sub:'Export mindig ingyenes · Az adat a tiéd',
+    offline_tip:'🚫 Offline (AI nélkül)', kulcs_figy:'⚠ Add meg az API kulcsodat!',
+    gemini_opt:'Gemini (Google – ingyenes)', claude_opt:'Claude (Anthropic – fizetős)',
+    kulcs_hianyz:' – kulcs hiányzik!', kesz:' kész', offline_mod:'Offline mód – AI nélkül',
+    help_close:'✕ Bezár', help_tagline:'Az AI elfelejt. Az adatbázis emlékszik.',
+    help_h1:'Offline PWA', help_p1:'Az adatod a telefonon van – nincs szerver, nincs felhő. Internet csak az AI válaszokhoz kell (Claude / Gemini API kulcs). Az adatbázis az eszközödön marad örökre.',
+    help_h2:'AI beállítás', help_p2:'Adj meg egy API kulcsot az oldalsávban:<br>• <b>Gemini</b>: ingyenes Google fiókkal – <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--green)">aistudio.google.com → Get API key</a><br>• <b>Claude</b>: <a href="https://console.anthropic.com/" target="_blank" rel="noopener" style="color:var(--green)">console.anthropic.com</a> – fizetős<br>A kulcs csak a telefonodon tárolódik.',
+    help_h3:'Chat módok', help_li1:'🗄 DB – saját adatbázisodból keres', help_li2:'🤖 AI – csak AI tudásából válaszol', help_li3:'🎤 Hangos bevitel – a 🎤 gombbal beszéd → szöveg, automatikus @voice horgonnyal mentve',
+    help_h4:'Export / Import', help_p4:'Biztonsági mentés fájlba. Jelszó opcionális – ha elfelejted, az export fájl olvashatatlan lesz, de az adatbázisod a telefonon megmarad.',
+    session_horg:'Chat ablak aktív horgony',
+    session_horg_ph:'@horgony @horgony2 …',
+    keres_tipp:'Írj be kifejezést és nyomj Entert. Időszűrő: "tegnap", "múlt héten", "3 napja", "januárban"',
+    keres_sugo:'Szöveg · @horgony · időszűrő · 🔗 kapcsolódó',
+    ido_ma:'📅 ma', ido_tegnap:'⬅ tegnap', ido_het:'📆 múlt héten', ido_honap:'🗓 múlt hónapban',
+    kapcsolodo:'🔗 kapcsolódó',
+    kapcsolodo_nincs:'Nincs kapcsolódó bejegyzés.',
+    ido_szuro:'Időszűrő aktív:',
+    fajl_valaszt:'Fájl kiválasztása…',
+    f_kritikus:'🔴 Kritikus', f_fontos:'🟡 Fontos', f_normal:'🟢 Normál', f_duma:'⚪ Duma',
+    exp_leiras:'🔒 Opcionális. Ha elfelejted: az export fájl olvashatatlan lesz, de az adatbázisod a telefonon megmarad.',
+    uj_db_leiras:'Törli az összes bejegyzést, és üres adatbázissal kezd.',
+    uj_db_confirm:'Biztosan törlöd az összes bejegyzést? Ez nem visszafordítható!',
+    imp_figy:'⚠ Backup automatikusan készül az importálás előtt.',
+    imp_jelszo_info:'🔒 Csak akkor kell ha exportáláskor be volt állítva jelszó.',
+    modell_kulcs_kell:'– add meg a kulcsot –',
+    modell_hiba:'Hiba – próbáld újra',
+    meret_kis:'Kis', meret_normal:'Normál', meret_nagy:'Nagy', meret_nagyobb:'Nagyobb',
+    tip_dontes:'!döntés', tip_otlet:'!ötlet', tip_hiba:'!hiba', tip_projekt:'@projekt',
+    app_frissit:'🔄 App frissítése',
+    mic_title:'Hangos bevitel',
+    a2a_label:'🔗 A2A Protocol',
+    a2a_info:'Engedélyezi külső AI ágensek számára az adatbázis olvasását. Csak akkor kapcsold be, ha tudod kivel osztod meg az adataidat.',
+    a2a_beta:'⚠ Kísérleti funkció – előfordulhat hogy nem működik.',
+    gemini_key_link:'🔑 Ingyenes Gemini API kulcs',
+    claude_key_link:'🔑 Claude API kulcs (~$5)',
+    gyari_visszaallitas:'⚠ Gyári visszaállítás',
+    gyari_confirm:'Törli az összes beállítást és API kulcsot. Az adatbázisod megmarad. Folytatod?',
+  },
+  en: {
+    ai_s:'🤖 AI', db_s:'🗄 Database', auto_s:'💾 Auto-save', look:'🎨 Appearance',
+    l_lang:'Language', aktiv:'Active', api_tipus:'API type', api_kulcs:'API key',
+    mentes:'💾 Save', modell:'Model', osszes:'Total', human:'Human',
+    chat:'Chat', bejegyzes:'Entry', kereses:'Search', exp:'Import/Export',
+    tartalom:'Content', horgonyok:'Anchors', tipus:'Type', fontossag:'Priority',
+    kuldo:'▶', welcome:'Hi! Choose a mode and ask.\n🗄 DB – from the database\n🤖 AI – from AI knowledge only\n🎤 Voice – tap mic to speak, saved with @voice',
+    hint_db:'Searches database', hint_ai:'AI only', hint_mix:'DB + AI combined', hint_agent:'E.g: "remember that..." · "what do I know about...?" · "save that..."',
+    be:'ON', ki:'OFF', keres_ph:'Search…', input_ph:'Type a question…', horg_ph:'e.g. memex, idea',
+    export_h:'Export', import_h:'Import', uj_db:'New database', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Same device', imp_new:'📱 New device',
+    exp_pw:'Password (optional)', imp_pw:'Password (if set during export)',
+    leker:'Fetch', frissit:'↻ Refresh', betumeret:'Font size',
+    mentve:'✓ Saved', nincs_tal:'No results.', betolt:'Loading…',
+    db_free:'✓ 1 database free', db_paid:'+ Each additional: $1',
+    db_sub:'Export always free · Your data is yours',
+    offline_tip:'🚫 Offline (no AI)', kulcs_figy:'⚠ Enter your API key!',
+    gemini_opt:'Gemini (Google – free)', claude_opt:'Claude (Anthropic – paid)',
+    kulcs_hianyz:' – key missing!', kesz:' ready', offline_mod:'Offline mode – no AI',
+    help_close:'✕ Close', help_tagline:'AI forgets. The database remembers.',
+    help_h1:'Offline PWA', help_p1:'Your data stays on your phone – no server, no cloud. Internet is only needed for AI responses (Claude / Gemini API key). Your database stays on your device forever.',
+    help_h2:'AI setup', help_p2:'Enter an API key in the sidebar:<br>• <b>Gemini</b>: free with a Google account – <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--green)">aistudio.google.com → Get API key</a><br>• <b>Claude</b>: <a href="https://console.anthropic.com/" target="_blank" rel="noopener" style="color:var(--green)">console.anthropic.com</a> – paid<br>The key is stored only on your device.',
+    help_h3:'Chat modes', help_li1:'🗄 DB – searches your own database', help_li2:'🤖 AI – answers from AI knowledge only', help_li3:'🎤 Voice input – use the 🎤 button to speak, saved automatically with @voice anchor',
+    help_h4:'Export / Import', help_p4:'Backup to a file. Password is optional – if you forget it, the export file will be unreadable, but your database on the device remains intact.',
+    session_horg:'Active chat anchor',
+    session_horg_ph:'@anchor @anchor2 …',
+    keres_tipp:'Type a term and press Enter. Time filters: "yesterday", "last week", "3 days ago", "in January"',
+    keres_sugo:'Text · @anchor · time filter · 🔗 related',
+    ido_ma:'📅 today', ido_tegnap:'⬅ yesterday', ido_het:'📆 last week', ido_honap:'🗓 last month',
+    kapcsolodo:'🔗 related',
+    kapcsolodo_nincs:'No related entries.',
+    ido_szuro:'Time filter active:',
+    fajl_valaszt:'Choose file…',
+    f_kritikus:'🔴 Critical', f_fontos:'🟡 Important', f_normal:'🟢 Normal', f_duma:'⚪ Casual',
+    exp_leiras:'🔒 Optional. If you forget it: the export file will be unreadable, but your database on the device remains intact.',
+    uj_db_leiras:'Deletes all entries and starts with an empty database.',
+    uj_db_confirm:'Delete all entries? This cannot be undone!',
+    imp_figy:'⚠ A backup is automatically created before importing.',
+    imp_jelszo_info:'🔒 Only needed if a password was set during export.',
+    modell_kulcs_kell:'– enter your key –',
+    modell_hiba:'Error – try again',
+    meret_kis:'Small', meret_normal:'Normal', meret_nagy:'Large', meret_nagyobb:'Larger',
+    tip_dontes:'!decision', tip_otlet:'!idea', tip_hiba:'!bug', tip_projekt:'@project',
+    app_frissit:'🔄 Update app',
+    mic_title:'Voice input',
+    a2a_label:'🔗 A2A Protocol',
+    a2a_info:'Allows external AI agents to read your database. Only enable if you know who you are sharing your data with.',
+    a2a_beta:'⚠ Experimental feature – may not work yet.',
+    gemini_key_link:'🔑 Get free Gemini API key',
+    claude_key_link:'🔑 Get Claude API key (~$5)',
+    gyari_visszaallitas:'⚠ Factory reset',
+    gyari_confirm:'Clears all settings and API key. Your database stays. Continue?',
+  },
+  de: {
+    ai_s:'🤖 AI', db_s:'🗄 Datenbank', auto_s:'💾 Auto-Speichern', look:'🎨 Aussehen',
+    l_lang:'Sprache', aktiv:'Aktiv', api_tipus:'API-Typ', api_kulcs:'API-Schlüssel',
+    mentes:'💾 Speichern', modell:'Modell', osszes:'Gesamt', human:'Mensch',
+    chat:'Chat', bejegyzes:'Eintrag', kereses:'Suche', exp:'Import/Export',
+    tartalom:'Inhalt', horgonyok:'Anker', tipus:'Typ', fontossag:'Priorität',
+    kuldo:'▶', welcome:'Hallo! Wähle einen Modus und frag.\n🗄 DB – aus der Datenbank\n🤖 AI – nur aus KI-Wissen\n⚡ Beide – DB + KI zusammen',
+    hint_db:'Durchsucht Datenbank', hint_ai:'Nur KI', hint_mix:'DB + KI kombiniert',
+    be:'AN', ki:'AUS', keres_ph:'Suchen…', input_ph:'Frage eingeben…', horg_ph:'z.B. memex, Idee',
+    export_h:'Export', import_h:'Import', uj_db:'Neue Datenbank', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Gleiches Gerät', imp_new:'📱 Neues Gerät',
+    exp_pw:'Passwort (optional)', imp_pw:'Passwort (falls gesetzt)',
+    leker:'Abrufen', frissit:'↻ Aktualisieren', betumeret:'Schriftgröße',
+    mentve:'✓ Gespeichert', nincs_tal:'Keine Ergebnisse.', betolt:'Lädt…',
+    db_free:'✓ 1 Datenbank kostenlos', db_paid:'+ Jede weitere: $1',
+    db_sub:'Export immer kostenlos · Deine Daten gehören dir',
+    offline_tip:'🚫 Offline (kein KI)', kulcs_figy:'⚠ API-Schlüssel eingeben!',
+  },
+  fr: {
+    ai_s:'🤖 IA', db_s:'🗄 Base de données', auto_s:'💾 Sauvegarde auto', look:'🎨 Apparence',
+    l_lang:'Langue', aktiv:'Actif', api_tipus:'Type API', api_kulcs:'Clé API',
+    mentes:'💾 Sauvegarder', modell:'Modèle', osszes:'Total', human:'Humain',
+    chat:'Chat', bejegyzes:'Entrée', kereses:'Recherche', exp:'Import/Export',
+    tartalom:'Contenu', horgonyok:'Ancres', tipus:'Type', fontossag:'Priorité',
+    kuldo:'▶', welcome:'Bonjour! Choisissez un mode et posez une question.\n🗄 DB – depuis la base de données\n🤖 IA – depuis les connaissances IA uniquement\n⚡ Les deux – DB + IA ensemble',
+    hint_db:'Recherche dans la base', hint_ai:'IA seulement', hint_mix:'DB + IA combinés',
+    be:'ON', ki:'OFF', keres_ph:'Rechercher…', input_ph:'Posez une question…', horg_ph:'ex. memex, idée',
+    export_h:'Export', import_h:'Import', uj_db:'Nouvelle base', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Même appareil', imp_new:'📱 Nouvel appareil',
+    exp_pw:'Mot de passe (optionnel)', imp_pw:'Mot de passe (si défini)',
+    leker:'Récupérer', frissit:'↻ Actualiser', betumeret:'Taille de police',
+    mentve:'✓ Sauvegardé', nincs_tal:'Aucun résultat.', betolt:'Chargement…',
+    db_free:'✓ 1 base gratuite', db_paid:'+ Chaque base supplémentaire: $1',
+    db_sub:'Export toujours gratuit · Vos données vous appartiennent',
+    offline_tip:'🚫 Hors ligne (sans IA)', kulcs_figy:'⚠ Entrez votre clé API!',
+  },
+  es: {
+    ai_s:'🤖 IA', db_s:'🗄 Base de datos', auto_s:'💾 Guardado auto', look:'🎨 Apariencia',
+    l_lang:'Idioma', aktiv:'Activo', api_tipus:'Tipo de API', api_kulcs:'Clave API',
+    mentes:'💾 Guardar', modell:'Modelo', osszes:'Total', human:'Humano',
+    chat:'Chat', bejegyzes:'Entrada', kereses:'Búsqueda', exp:'Import/Export',
+    tartalom:'Contenido', horgonyok:'Anclas', tipus:'Tipo', fontossag:'Prioridad',
+    kuldo:'▶', welcome:'¡Hola! Elige un modo y pregunta.\n🗄 DB – desde la base de datos\n🤖 IA – solo del conocimiento de IA\n⚡ Ambos – DB + IA a la vez',
+    hint_db:'Busca en la base', hint_ai:'Solo IA', hint_mix:'DB + IA combinados',
+    be:'ON', ki:'OFF', keres_ph:'Buscar…', input_ph:'Escribe una pregunta…', horg_ph:'ej. memex, idea',
+    export_h:'Export', import_h:'Import', uj_db:'Nueva base', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Mismo dispositivo', imp_new:'📱 Nuevo dispositivo',
+    exp_pw:'Contraseña (opcional)', imp_pw:'Contraseña (si se estableció)',
+    leker:'Obtener', frissit:'↻ Actualizar', betumeret:'Tamaño de fuente',
+    mentve:'✓ Guardado', nincs_tal:'Sin resultados.', betolt:'Cargando…',
+    db_free:'✓ 1 base gratuita', db_paid:'+ Cada base adicional: $1',
+    db_sub:'Export siempre gratis · Tus datos son tuyos',
+    offline_tip:'🚫 Sin conexión (sin IA)', kulcs_figy:'⚠ Introduce tu clave API!',
+  },
+  it: {
+    ai_s:'🤖 IA', db_s:'🗄 Database', auto_s:'💾 Salvataggio auto', look:'🎨 Aspetto',
+    l_lang:'Lingua', aktiv:'Attivo', api_tipus:'Tipo API', api_kulcs:'Chiave API',
+    mentes:'💾 Salva', modell:'Modello', osszes:'Totale', human:'Umano',
+    chat:'Chat', bejegyzes:'Voce', kereses:'Ricerca', exp:'Import/Export',
+    tartalom:'Contenuto', horgonyok:'Ancore', tipus:'Tipo', fontossag:'Priorità',
+    kuldo:'▶', welcome:'Ciao! Scegli una modalità e chiedi.\n🗄 DB – dal database\n🤖 IA – solo dalle conoscenze IA\n⚡ Entrambi – DB + IA insieme',
+    hint_db:'Cerca nel database', hint_ai:'Solo IA', hint_mix:'DB + IA combinati',
+    be:'ON', ki:'OFF', keres_ph:'Cerca…', input_ph:'Scrivi una domanda…', horg_ph:'es. memex, idea',
+    export_h:'Export', import_h:'Import', uj_db:'Nuovo database', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Stesso dispositivo', imp_new:'📱 Nuovo dispositivo',
+    exp_pw:'Password (opzionale)', imp_pw:'Password (se impostata)',
+    leker:'Recupera', frissit:'↻ Aggiorna', betumeret:'Dimensione carattere',
+    mentve:'✓ Salvato', nincs_tal:'Nessun risultato.', betolt:'Caricamento…',
+    db_free:'✓ 1 database gratuito', db_paid:'+ Ogni ulteriore: $1',
+    db_sub:'Export sempre gratuito · I tuoi dati sono tuoi',
+    offline_tip:'🚫 Offline (senza IA)', kulcs_figy:'⚠ Inserisci la chiave API!',
+  },
+  pl: {
+    ai_s:'🤖 AI', db_s:'🗄 Baza danych', auto_s:'💾 Autozapis', look:'🎨 Wygląd',
+    l_lang:'Język', aktiv:'Aktywny', api_tipus:'Typ API', api_kulcs:'Klucz API',
+    mentes:'💾 Zapisz', modell:'Model', osszes:'Razem', human:'Człowiek',
+    chat:'Chat', bejegyzes:'Wpis', kereses:'Wyszukiwanie', exp:'Import/Export',
+    tartalom:'Treść', horgonyok:'Kotwice', tipus:'Typ', fontossag:'Priorytet',
+    kuldo:'▶', welcome:'Cześć! Wybierz tryb i zadaj pytanie.\n🗄 DB – z bazy danych\n🤖 AI – tylko z wiedzy AI\n⚡ Oba – DB + AI jednocześnie',
+    hint_db:'Przeszukuje bazę', hint_ai:'Tylko AI', hint_mix:'DB + AI razem',
+    be:'WŁ', ki:'WYŁ', keres_ph:'Szukaj…', input_ph:'Wpisz pytanie…', horg_ph:'np. memex, pomysł',
+    export_h:'Export', import_h:'Import', uj_db:'Nowa baza', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 To samo urządzenie', imp_new:'📱 Nowe urządzenie',
+    exp_pw:'Hasło (opcjonalne)', imp_pw:'Hasło (jeśli ustawiono)',
+    leker:'Pobierz', frissit:'↻ Odśwież', betumeret:'Rozmiar czcionki',
+    mentve:'✓ Zapisano', nincs_tal:'Brak wyników.', betolt:'Ładowanie…',
+    db_free:'✓ 1 baza bezpłatna', db_paid:'+ Każda kolejna: $1',
+    db_sub:'Export zawsze bezpłatny · Twoje dane należą do Ciebie',
+    offline_tip:'🚫 Offline (bez AI)', kulcs_figy:'⚠ Wprowadź klucz API!',
+  },
+  ro: {
+    ai_s:'🤖 AI', db_s:'🗄 Bază de date', auto_s:'💾 Salvare auto', look:'🎨 Aspect',
+    l_lang:'Limbă', aktiv:'Activ', api_tipus:'Tip API', api_kulcs:'Cheie API',
+    mentes:'💾 Salvează', modell:'Model', osszes:'Total', human:'Om',
+    chat:'Chat', bejegyzes:'Intrare', kereses:'Căutare', exp:'Import/Export',
+    tartalom:'Conținut', horgonyok:'Ancore', tipus:'Tip', fontossag:'Prioritate',
+    kuldo:'▶', welcome:'Bună! Alege un mod și întreabă.\n🗄 DB – din baza de date\n🤖 AI – doar din cunoștințele AI\n⚡ Ambele – DB + AI simultan',
+    hint_db:'Caută în bază', hint_ai:'Doar AI', hint_mix:'DB + AI combinate',
+    be:'ON', ki:'OFF', keres_ph:'Caută…', input_ph:'Scrie o întrebare…', horg_ph:'ex. memex, idee',
+    export_h:'Export', import_h:'Import', uj_db:'Bază nouă', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Același dispozitiv', imp_new:'📱 Dispozitiv nou',
+    exp_pw:'Parolă (opțional)', imp_pw:'Parolă (dacă a fost setată)',
+    leker:'Obține', frissit:'↻ Reîmprospătează', betumeret:'Mărime font',
+    mentve:'✓ Salvat', nincs_tal:'Fără rezultate.', betolt:'Se încarcă…',
+    db_free:'✓ 1 bază gratuită', db_paid:'+ Fiecare suplimentară: $1',
+    db_sub:'Export întotdeauna gratuit · Datele tale îți aparțin',
+    offline_tip:'🚫 Offline (fără AI)', kulcs_figy:'⚠ Introduceți cheia API!',
+  },
+  sk: {
+    ai_s:'🤖 AI', db_s:'🗄 Databáza', auto_s:'💾 Auto uloženie', look:'🎨 Vzhľad',
+    l_lang:'Jazyk', aktiv:'Aktívny', api_tipus:'Typ API', api_kulcs:'API kľúč',
+    mentes:'💾 Uložiť', modell:'Model', osszes:'Celkom', human:'Človek',
+    chat:'Chat', bejegyzes:'Záznam', kereses:'Hľadanie', exp:'Import/Export',
+    tartalom:'Obsah', horgonyok:'Kotvy', tipus:'Typ', fontossag:'Priorita',
+    kuldo:'▶', welcome:'Ahoj! Vyber režim a spýtaj sa.\n🗄 DB – z databázy\n🤖 AI – len zo znalostí AI\n⚡ Oba – DB + AI naraz',
+    hint_db:'Hľadá v databáze', hint_ai:'Len AI', hint_mix:'DB + AI spolu',
+    be:'ZAP', ki:'VYP', keres_ph:'Hľadať…', input_ph:'Napíš otázku…', horg_ph:'napr. memex, nápad',
+    export_h:'Export', import_h:'Import', uj_db:'Nová databáza', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 To isté zariadenie', imp_new:'📱 Nové zariadenie',
+    exp_pw:'Heslo (nepovinné)', imp_pw:'Heslo (ak bolo nastavené)',
+    leker:'Načítať', frissit:'↻ Obnoviť', betumeret:'Veľkosť písma',
+    mentve:'✓ Uložené', nincs_tal:'Žiadne výsledky.', betolt:'Načítava…',
+    db_free:'✓ 1 databáza zadarmo', db_paid:'+ Každá ďalšia: $1',
+    db_sub:'Export vždy zadarmo · Tvoje dáta patria tebe',
+    offline_tip:'🚫 Offline (bez AI)', kulcs_figy:'⚠ Zadajte API kľúč!',
+  },
+  cs: {
+    ai_s:'🤖 AI', db_s:'🗄 Databáze', auto_s:'💾 Auto uložení', look:'🎨 Vzhled',
+    l_lang:'Jazyk', aktiv:'Aktivní', api_tipus:'Typ API', api_kulcs:'API klíč',
+    mentes:'💾 Uložit', modell:'Model', osszes:'Celkem', human:'Člověk',
+    chat:'Chat', bejegyzes:'Záznam', kereses:'Hledání', exp:'Import/Export',
+    tartalom:'Obsah', horgonyok:'Kotvy', tipus:'Typ', fontossag:'Priorita',
+    kuldo:'▶', welcome:'Ahoj! Vyber režim a zeptej se.\n🗄 DB – z databáze\n🤖 AI – jen ze znalostí AI\n⚡ Oba – DB + AI najednou',
+    hint_db:'Hledá v databázi', hint_ai:'Jen AI', hint_mix:'DB + AI dohromady',
+    be:'ZAP', ki:'VYP', keres_ph:'Hledat…', input_ph:'Napiš otázku…', horg_ph:'např. memex, nápad',
+    export_h:'Export', import_h:'Import', uj_db:'Nová databáze', uuid_h:'UUID',
+    exp_btn:'📦 Export', imp_same:'📥 Stejné zařízení', imp_new:'📱 Nové zařízení',
+    exp_pw:'Heslo (volitelné)', imp_pw:'Heslo (pokud bylo nastaveno)',
+    leker:'Načíst', frissit:'↻ Obnovit', betumeret:'Velikost písma',
+    mentve:'✓ Uloženo', nincs_tal:'Žádné výsledky.', betolt:'Načítání…',
+    db_free:'✓ 1 databáze zdarma', db_paid:'+ Každá další: $1',
+    db_sub:'Export vždy zdarma · Tvá data patří tobě',
+    offline_tip:'🚫 Offline (bez AI)', kulcs_figy:'⚠ Zadejte API klíč!',
+  },
+  ru: {
+    ai_s:'🤖 ИИ', db_s:'🗄 База данных', auto_s:'💾 Автосохранение', look:'🎨 Внешний вид',
+    l_lang:'Язык', aktiv:'Активный', api_tipus:'Тип API', api_kulcs:'API ключ',
+    mentes:'💾 Сохранить', modell:'Модель', osszes:'Всего', human:'Человек',
+    chat:'Чат', bejegyzes:'Запись', kereses:'Поиск', exp:'Импорт/Экспорт',
+    tartalom:'Содержание', horgonyok:'Якоря', tipus:'Тип', fontossag:'Приоритет',
+    kuldo:'▶', welcome:'Привет! Выберите режим и задайте вопрос.\n🗄 БД – из базы данных\n🤖 ИИ – только из знаний ИИ\n⚡ Оба – БД + ИИ одновременно',
+    hint_db:'Поиск в базе', hint_ai:'Только ИИ', hint_mix:'БД + ИИ вместе',
+    be:'ВКЛ', ki:'ВЫКЛ', keres_ph:'Поиск…', input_ph:'Введите вопрос…', horg_ph:'напр. memex, идея',
+    export_h:'Экспорт', import_h:'Импорт', uj_db:'Новая база', uuid_h:'UUID',
+    exp_btn:'📦 Экспорт', imp_same:'📥 То же устройство', imp_new:'📱 Новое устройство',
+    exp_pw:'Пароль (необязательно)', imp_pw:'Пароль (если был задан)',
+    leker:'Получить', frissit:'↻ Обновить', betumeret:'Размер шрифта',
+    mentve:'✓ Сохранено', nincs_tal:'Нет результатов.', betolt:'Загрузка…',
+    db_free:'✓ 1 база бесплатно', db_paid:'+ Каждая следующая: $1',
+    db_sub:'Экспорт всегда бесплатен · Ваши данные принадлежат вам',
+    offline_tip:'🚫 Офлайн (без ИИ)', kulcs_figy:'⚠ Введите API ключ!',
+  },
+  uk: {
+    ai_s:'🤖 ШІ', db_s:'🗄 База даних', auto_s:'💾 Автозбереження', look:'🎨 Зовнішній вигляд',
+    l_lang:'Мова', aktiv:'Активний', api_tipus:'Тип API', api_kulcs:'API ключ',
+    mentes:'💾 Зберегти', modell:'Модель', osszes:'Всього', human:'Людина',
+    chat:'Чат', bejegyzes:'Запис', kereses:'Пошук', exp:'Імпорт/Експорт',
+    tartalom:'Зміст', horgonyok:'Якорі', tipus:'Тип', fontossag:'Пріоритет',
+    kuldo:'▶', welcome:'Привіт! Обери режим і запитай.\n🗄 БД – з бази даних\n🤖 ШІ – тільки зі знань ШІ\n⚡ Обидва – БД + ШІ одночасно',
+    hint_db:'Шукає в базі', hint_ai:'Тільки ШІ', hint_mix:'БД + ШІ разом',
+    be:'УВМ', ki:'ВИМК', keres_ph:'Пошук…', input_ph:'Введи питання…', horg_ph:'напр. memex, ідея',
+    export_h:'Експорт', import_h:'Імпорт', uj_db:'Нова база', uuid_h:'UUID',
+    exp_btn:'📦 Експорт', imp_same:'📥 Той самий пристрій', imp_new:'📱 Новий пристрій',
+    exp_pw:'Пароль (необов\'язково)', imp_pw:'Пароль (якщо був заданий)',
+    leker:'Отримати', frissit:'↻ Оновити', betumeret:'Розмір шрифту',
+    mentve:'✓ Збережено', nincs_tal:'Немає результатів.', betolt:'Завантаження…',
+    db_free:'✓ 1 база безкоштовно', db_paid:'+ Кожна наступна: $1',
+    db_sub:'Експорт завжди безкоштовний · Ваші дані належать вам',
+    offline_tip:'🚫 Офлайн (без ШІ)', kulcs_figy:'⚠ Введіть API ключ!',
+  },
+  zh: {
+    ai_s:'🤖 AI', db_s:'🗄 数据库', auto_s:'💾 自动保存', look:'🎨 外观',
+    l_lang:'语言', aktiv:'激活', api_tipus:'API类型', api_kulcs:'API密钥',
+    mentes:'💾 保存', modell:'模型', osszes:'总计', human:'人类',
+    chat:'聊天', bejegyzes:'记录', kereses:'搜索', exp:'导入/导出',
+    tartalom:'内容', horgonyok:'锚点', tipus:'类型', fontossag:'优先级',
+    kuldo:'▶', welcome:'你好！选择模式并提问。\n🗄 数据库 – 从数据库中搜索\n🤖 AI – 仅从AI知识回答\n⚡ 两者 – 数据库 + AI同时',
+    hint_db:'搜索数据库', hint_ai:'仅AI', hint_mix:'数据库 + AI 组合',
+    be:'开', ki:'关', keres_ph:'搜索…', input_ph:'输入问题…', horg_ph:'例如 memex, 想法',
+    export_h:'导出', import_h:'导入', uj_db:'新数据库', uuid_h:'UUID',
+    exp_btn:'📦 导出', imp_same:'📥 同一设备', imp_new:'📱 新设备',
+    exp_pw:'密码（可选）', imp_pw:'密码（如已设置）',
+    leker:'获取', frissit:'↻ 刷新', betumeret:'字体大小',
+    mentve:'✓ 已保存', nincs_tal:'无结果。', betolt:'加载中…',
+    db_free:'✓ 1个数据库免费', db_paid:'+ 每个额外数据库：$1',
+    db_sub:'导出永远免费 · 数据属于你',
+    offline_tip:'🚫 离线（无AI）', kulcs_figy:'⚠ 请输入API密钥！',
+  },
+  ja: {
+    ai_s:'🤖 AI', db_s:'🗄 データベース', auto_s:'💾 自動保存', look:'🎨 外観',
+    l_lang:'言語', aktiv:'アクティブ', api_tipus:'APIタイプ', api_kulcs:'APIキー',
+    mentes:'💾 保存', modell:'モデル', osszes:'合計', human:'人間',
+    chat:'チャット', bejegyzes:'記録', kereses:'検索', exp:'インポート/エクスポート',
+    tartalom:'内容', horgonyok:'アンカー', tipus:'タイプ', fontossag:'優先度',
+    kuldo:'▶', welcome:'こんにちは！モードを選んで質問してください。\n🗄 DB – データベースから検索\n🤖 AI – AIの知識のみから回答\n⚡ 両方 – DB + AI同時に',
+    hint_db:'データベースを検索', hint_ai:'AIのみ', hint_mix:'DB + AI組み合わせ',
+    be:'ON', ki:'OFF', keres_ph:'検索…', input_ph:'質問を入力…', horg_ph:'例：memex、アイデア',
+    export_h:'エクスポート', import_h:'インポート', uj_db:'新しいDB', uuid_h:'UUID',
+    exp_btn:'📦 エクスポート', imp_same:'📥 同じデバイス', imp_new:'📱 新しいデバイス',
+    exp_pw:'パスワード（任意）', imp_pw:'パスワード（設定した場合）',
+    leker:'取得', frissit:'↻ 更新', betumeret:'フォントサイズ',
+    mentve:'✓ 保存済み', nincs_tal:'結果なし。', betolt:'読み込み中…',
+    db_free:'✓ 1つのDBが無料', db_paid:'+ 追加DB：各$1',
+    db_sub:'エクスポートは常に無料 · あなたのデータはあなたのもの',
+    offline_tip:'🚫 オフライン（AIなし）', kulcs_figy:'⚠ APIキーを入力してください！',
+  },
+  ko: {
+    ai_s:'🤖 AI', db_s:'🗄 데이터베이스', auto_s:'💾 자동 저장', look:'🎨 외관',
+    l_lang:'언어', aktiv:'활성', api_tipus:'API 유형', api_kulcs:'API 키',
+    mentes:'💾 저장', modell:'모델', osszes:'합계', human:'인간',
+    chat:'채팅', bejegyzes:'기록', kereses:'검색', exp:'가져오기/내보내기',
+    tartalom:'내용', horgonyok:'앵커', tipus:'유형', fontossag:'우선순위',
+    kuldo:'▶', welcome:'안녕하세요! 모드를 선택하고 질문하세요.\n🗄 DB – 데이터베이스에서 검색\n🤖 AI – AI 지식에서만 답변\n⚡ 둘 다 – DB + AI 동시에',
+    hint_db:'데이터베이스 검색', hint_ai:'AI만', hint_mix:'DB + AI 결합',
+    be:'켜기', ki:'끄기', keres_ph:'검색…', input_ph:'질문 입력…', horg_ph:'예: memex, 아이디어',
+    export_h:'내보내기', import_h:'가져오기', uj_db:'새 데이터베이스', uuid_h:'UUID',
+    exp_btn:'📦 내보내기', imp_same:'📥 같은 기기', imp_new:'📱 새 기기',
+    exp_pw:'비밀번호 (선택사항)', imp_pw:'비밀번호 (설정한 경우)',
+    leker:'가져오기', frissit:'↻ 새로고침', betumeret:'글꼴 크기',
+    mentve:'✓ 저장됨', nincs_tal:'결과 없음.', betolt:'로딩 중…',
+    db_free:'✓ 1개 DB 무료', db_paid:'+ 추가 DB: $1',
+    db_sub:'내보내기 항상 무료 · 데이터는 당신의 것',
+    offline_tip:'🚫 오프라인 (AI 없음)', kulcs_figy:'⚠ API 키를 입력하세요!',
+  },
+  ar: {
+    ai_s:'🤖 ذكاء اصطناعي', db_s:'🗄 قاعدة البيانات', auto_s:'💾 حفظ تلقائي', look:'🎨 المظهر',
+    l_lang:'اللغة', aktiv:'نشط', api_tipus:'نوع API', api_kulcs:'مفتاح API',
+    mentes:'💾 حفظ', modell:'النموذج', osszes:'المجموع', human:'إنسان',
+    chat:'دردشة', bejegyzes:'إدخال', kereses:'بحث', exp:'استيراد/تصدير',
+    tartalom:'المحتوى', horgonyok:'مراسي', tipus:'نوع', fontossag:'الأولوية',
+    kuldo:'▶', welcome:'مرحباً! اختر وضعاً واسأل.\n🗄 قاعدة البيانات – من قاعدة البيانات\n🤖 ذكاء اصطناعي – من معرفة الذكاء فقط\n⚡ كلاهما – قاعدة البيانات + الذكاء معاً',
+    hint_db:'يبحث في القاعدة', hint_ai:'ذكاء اصطناعي فقط', hint_mix:'القاعدة + الذكاء معاً',
+    be:'تشغيل', ki:'إيقاف', keres_ph:'بحث…', input_ph:'اكتب سؤالاً…', horg_ph:'مثل: memex، فكرة',
+    export_h:'تصدير', import_h:'استيراد', uj_db:'قاعدة جديدة', uuid_h:'UUID',
+    exp_btn:'📦 تصدير', imp_same:'📥 نفس الجهاز', imp_new:'📱 جهاز جديد',
+    exp_pw:'كلمة المرور (اختياري)', imp_pw:'كلمة المرور (إن وجدت)',
+    leker:'جلب', frissit:'↻ تحديث', betumeret:'حجم الخط',
+    mentve:'✓ تم الحفظ', nincs_tal:'لا توجد نتائج.', betolt:'جارٍ التحميل…',
+    db_free:'✓ قاعدة بيانات واحدة مجانية', db_paid:'+ كل قاعدة إضافية: $1',
+    db_sub:'التصدير مجاني دائماً · بياناتك ملكك',
+    offline_tip:'🚫 غير متصل (بدون ذكاء)', kulcs_figy:'⚠ أدخل مفتاح API!',
+  },
+  hi: {
+    ai_s:'🤖 AI', db_s:'🗄 डेटाबेस', auto_s:'💾 ऑटो सेव', look:'🎨 रूप',
+    l_lang:'भाषा', aktiv:'सक्रिय', api_tipus:'API प्रकार', api_kulcs:'API कुंजी',
+    mentes:'💾 सेव', modell:'मॉडल', osszes:'कुल', human:'मानव',
+    chat:'चैट', bejegyzes:'प्रविष्टि', kereses:'खोज', exp:'आयात/निर्यात',
+    tartalom:'सामग्री', horgonyok:'एंकर', tipus:'प्रकार', fontossag:'प्राथमिकता',
+    kuldo:'▶', welcome:'नमस्ते! मोड चुनें और पूछें।\n🗄 DB – डेटाबेस से खोज\n🤖 AI – केवल AI ज्ञान से\n⚡ दोनों – DB + AI एक साथ',
+    hint_db:'डेटाबेस खोज', hint_ai:'केवल AI', hint_mix:'DB + AI एकसाथ',
+    be:'चालू', ki:'बंद', keres_ph:'खोजें…', input_ph:'प्रश्न लिखें…', horg_ph:'जैसे memex, विचार',
+    export_h:'निर्यात', import_h:'आयात', uj_db:'नया डेटाबेस', uuid_h:'UUID',
+    exp_btn:'📦 निर्यात', imp_same:'📥 वही डिवाइस', imp_new:'📱 नया डिवाइस',
+    exp_pw:'पासवर्ड (वैकल्पिक)', imp_pw:'पासवर्ड (यदि सेट किया गया)',
+    leker:'लाएं', frissit:'↻ ताज़ा करें', betumeret:'फ़ॉन्ट आकार',
+    mentve:'✓ सेव हो गया', nincs_tal:'कोई परिणाम नहीं।', betolt:'लोड हो रहा है…',
+    db_free:'✓ 1 डेटाबेस मुफ़्त', db_paid:'+ हर अतिरिक्त: $1',
+    db_sub:'निर्यात हमेशा मुफ़्त · आपका डेटा आपका है',
+    offline_tip:'🚫 ऑफलाइन (AI के बिना)', kulcs_figy:'⚠ API कुंजी दर्ज करें!',
+  },
+  tr: {
+    ai_s:'🤖 YZ', db_s:'🗄 Veritabanı', auto_s:'💾 Otomatik kayıt', look:'🎨 Görünüm',
+    l_lang:'Dil', aktiv:'Aktif', api_tipus:'API türü', api_kulcs:'API anahtarı',
+    mentes:'💾 Kaydet', modell:'Model', osszes:'Toplam', human:'İnsan',
+    chat:'Sohbet', bejegyzes:'Kayıt', kereses:'Arama', exp:'İçe/Dışa aktar',
+    tartalom:'İçerik', horgonyok:'Çapalar', tipus:'Tür', fontossag:'Öncelik',
+    kuldo:'▶', welcome:'Merhaba! Mod seçin ve sorun.\n🗄 VT – veritabanından arama\n🤖 YZ – yalnızca YZ bilgisinden\n⚡ İkisi – VT + YZ aynı anda',
+    hint_db:'Veritabanında arar', hint_ai:'Sadece YZ', hint_mix:'VT + YZ birlikte',
+    be:'AÇIK', ki:'KAPALI', keres_ph:'Ara…', input_ph:'Soru yaz…', horg_ph:'ör. memex, fikir',
+    export_h:'Dışa aktar', import_h:'İçe aktar', uj_db:'Yeni veritabanı', uuid_h:'UUID',
+    exp_btn:'📦 Dışa aktar', imp_same:'📥 Aynı cihaz', imp_new:'📱 Yeni cihaz',
+    exp_pw:'Parola (isteğe bağlı)', imp_pw:'Parola (ayarlandıysa)',
+    leker:'Al', frissit:'↻ Yenile', betumeret:'Yazı boyutu',
+    mentve:'✓ Kaydedildi', nincs_tal:'Sonuç yok.', betolt:'Yükleniyor…',
+    db_free:'✓ 1 veritabanı ücretsiz', db_paid:'+ Her ekstra: $1',
+    db_sub:'Dışa aktarma her zaman ücretsiz · Verileriniz size ait',
+    offline_tip:'🚫 Çevrimdışı (YZ yok)', kulcs_figy:'⚠ API anahtarı girin!',
+  },
+  pt: {
+    ai_s:'🤖 IA', db_s:'🗄 Banco de dados', auto_s:'💾 Salvar auto', look:'🎨 Aparência',
+    l_lang:'Idioma', aktiv:'Ativo', api_tipus:'Tipo de API', api_kulcs:'Chave API',
+    mentes:'💾 Salvar', modell:'Modelo', osszes:'Total', human:'Humano',
+    chat:'Chat', bejegyzes:'Entrada', kereses:'Pesquisa', exp:'Importar/Exportar',
+    tartalom:'Conteúdo', horgonyok:'Âncoras', tipus:'Tipo', fontossag:'Prioridade',
+    kuldo:'▶', welcome:'Olá! Escolha um modo e pergunte.\n🗄 DB – do banco de dados\n🤖 IA – só do conhecimento da IA\n⚡ Ambos – DB + IA ao mesmo tempo',
+    hint_db:'Pesquisa no banco', hint_ai:'Só IA', hint_mix:'DB + IA combinados',
+    be:'ON', ki:'OFF', keres_ph:'Pesquisar…', input_ph:'Digite uma pergunta…', horg_ph:'ex. memex, ideia',
+    export_h:'Exportar', import_h:'Importar', uj_db:'Novo banco', uuid_h:'UUID',
+    exp_btn:'📦 Exportar', imp_same:'📥 Mesmo dispositivo', imp_new:'📱 Novo dispositivo',
+    exp_pw:'Senha (opcional)', imp_pw:'Senha (se definida)',
+    leker:'Buscar', frissit:'↻ Atualizar', betumeret:'Tamanho da fonte',
+    mentve:'✓ Salvo', nincs_tal:'Sem resultados.', betolt:'Carregando…',
+    db_free:'✓ 1 banco gratuito', db_paid:'+ Cada adicional: $1',
+    db_sub:'Exportar sempre grátis · Seus dados são seus',
+    offline_tip:'🚫 Offline (sem IA)', kulcs_figy:'⚠ Insira a chave API!',
+  },
+  nl: {
+    ai_s:'🤖 AI', db_s:'🗄 Database', auto_s:'💾 Automatisch opslaan', look:'🎨 Uiterlijk',
+    l_lang:'Taal', aktiv:'Actief', api_tipus:'API-type', api_kulcs:'API-sleutel',
+    mentes:'💾 Opslaan', modell:'Model', osszes:'Totaal', human:'Mens',
+    chat:'Chat', bejegyzes:'Item', kereses:'Zoeken', exp:'Importeren/Exporteren',
+    tartalom:'Inhoud', horgonyok:'Ankers', tipus:'Type', fontossag:'Prioriteit',
+    kuldo:'▶', welcome:'Hallo! Kies een modus en stel een vraag.\n🗄 DB – uit de database\n🤖 AI – alleen uit AI-kennis\n⚡ Beide – DB + AI tegelijk',
+    hint_db:'Zoekt in database', hint_ai:'Alleen AI', hint_mix:'DB + AI gecombineerd',
+    be:'AAN', ki:'UIT', keres_ph:'Zoeken…', input_ph:'Typ een vraag…', horg_ph:'bijv. memex, idee',
+    export_h:'Exporteren', import_h:'Importeren', uj_db:'Nieuwe database', uuid_h:'UUID',
+    exp_btn:'📦 Exporteren', imp_same:'📥 Zelfde apparaat', imp_new:'📱 Nieuw apparaat',
+    exp_pw:'Wachtwoord (optioneel)', imp_pw:'Wachtwoord (indien ingesteld)',
+    leker:'Ophalen', frissit:'↻ Vernieuwen', betumeret:'Lettergrootte',
+    mentve:'✓ Opgeslagen', nincs_tal:'Geen resultaten.', betolt:'Laden…',
+    db_free:'✓ 1 database gratis', db_paid:'+ Elke extra: $1',
+    db_sub:'Exporteren altijd gratis · Uw gegevens zijn van u',
+    offline_tip:'🚫 Offline (geen AI)', kulcs_figy:'⚠ Voer API-sleutel in!',
+  },
+  sv: {
+    ai_s:'🤖 AI', db_s:'🗄 Databas', auto_s:'💾 Autospara', look:'🎨 Utseende',
+    l_lang:'Språk', aktiv:'Aktiv', api_tipus:'API-typ', api_kulcs:'API-nyckel',
+    mentes:'💾 Spara', modell:'Modell', osszes:'Totalt', human:'Människa',
+    chat:'Chatt', bejegyzes:'Post', kereses:'Sök', exp:'Importera/Exportera',
+    tartalom:'Innehåll', horgonyok:'Ankare', tipus:'Typ', fontossag:'Prioritet',
+    kuldo:'▶', welcome:'Hej! Välj ett läge och ställ en fråga.\n🗄 DB – från databasen\n🤖 AI – bara från AI-kunskap\n⚡ Båda – DB + AI samtidigt',
+    hint_db:'Söker i databas', hint_ai:'Bara AI', hint_mix:'DB + AI kombinerat',
+    be:'PÅ', ki:'AV', keres_ph:'Sök…', input_ph:'Skriv en fråga…', horg_ph:'t.ex. memex, idé',
+    export_h:'Exportera', import_h:'Importera', uj_db:'Ny databas', uuid_h:'UUID',
+    exp_btn:'📦 Exportera', imp_same:'📥 Samma enhet', imp_new:'📱 Ny enhet',
+    exp_pw:'Lösenord (valfritt)', imp_pw:'Lösenord (om inställt)',
+    leker:'Hämta', frissit:'↻ Uppdatera', betumeret:'Teckenstorlek',
+    mentve:'✓ Sparat', nincs_tal:'Inga resultat.', betolt:'Laddar…',
+    db_free:'✓ 1 databas gratis', db_paid:'+ Varje extra: $1',
+    db_sub:'Export alltid gratis · Din data tillhör dig',
+    offline_tip:'🚫 Offline (ingen AI)', kulcs_figy:'⚠ Ange API-nyckel!',
+  },
+  id: {
+    ai_s:'🤖 AI', db_s:'🗄 Basis Data', auto_s:'💾 Simpan Otomatis', look:'🎨 Tampilan',
+    l_lang:'Bahasa', aktiv:'Aktif', api_tipus:'Tipe API', api_kulcs:'Kunci API',
+    mentes:'💾 Simpan', modell:'Model', osszes:'Total', human:'Manusia',
+    chat:'Obrolan', bejegyzes:'Entri', kereses:'Cari', exp:'Impor/Ekspor',
+    tartalom:'Konten', horgonyok:'Jangkar', tipus:'Tipe', fontossag:'Prioritas',
+    kuldo:'▶', welcome:'Halo! Pilih mode dan ajukan pertanyaan.\n🗄 DB – dari basis data\n🤖 AI – hanya dari pengetahuan AI\n⚡ Keduanya – DB + AI sekaligus',
+    hint_db:'Mencari di basis data', hint_ai:'Hanya AI', hint_mix:'DB + AI digabung',
+    be:'ON', ki:'OFF', keres_ph:'Cari…', input_ph:'Ketik pertanyaan…', horg_ph:'mis. memex, ide',
+    export_h:'Ekspor', import_h:'Impor', uj_db:'Basis Data Baru', uuid_h:'UUID',
+    exp_btn:'📦 Ekspor', imp_same:'📥 Perangkat Sama', imp_new:'📱 Perangkat Baru',
+    exp_pw:'Kata sandi (opsional)', imp_pw:'Kata sandi (jika diatur)',
+    leker:'Ambil', frissit:'↻ Segarkan', betumeret:'Ukuran Font',
+    mentve:'✓ Tersimpan', nincs_tal:'Tidak ada hasil.', betolt:'Memuat…',
+    db_free:'✓ 1 basis data gratis', db_paid:'+ Setiap tambahan: $1',
+    db_sub:'Ekspor selalu gratis · Data Anda milik Anda',
+    offline_tip:'🚫 Offline (tanpa AI)', kulcs_figy:'⚠ Masukkan kunci API!',
+  },
+  vi: {
+    ai_s:'🤖 AI', db_s:'🗄 Cơ sở dữ liệu', auto_s:'💾 Tự động lưu', look:'🎨 Giao diện',
+    l_lang:'Ngôn ngữ', aktiv:'Hoạt động', api_tipus:'Loại API', api_kulcs:'Khóa API',
+    mentes:'💾 Lưu', modell:'Mô hình', osszes:'Tổng', human:'Con người',
+    chat:'Trò chuyện', bejegyzes:'Mục nhập', kereses:'Tìm kiếm', exp:'Nhập/Xuất',
+    tartalom:'Nội dung', horgonyok:'Neo', tipus:'Loại', fontossag:'Ưu tiên',
+    kuldo:'▶', welcome:'Xin chào! Chọn chế độ và đặt câu hỏi.\n🗄 DB – từ cơ sở dữ liệu\n🤖 AI – chỉ từ kiến thức AI\n⚡ Cả hai – DB + AI cùng lúc',
+    hint_db:'Tìm trong cơ sở dữ liệu', hint_ai:'Chỉ AI', hint_mix:'DB + AI kết hợp',
+    be:'BẬT', ki:'TẮT', keres_ph:'Tìm kiếm…', input_ph:'Nhập câu hỏi…', horg_ph:'vd. memex, ý tưởng',
+    export_h:'Xuất', import_h:'Nhập', uj_db:'Cơ sở dữ liệu mới', uuid_h:'UUID',
+    exp_btn:'📦 Xuất', imp_same:'📥 Cùng thiết bị', imp_new:'📱 Thiết bị mới',
+    exp_pw:'Mật khẩu (tùy chọn)', imp_pw:'Mật khẩu (nếu đã đặt)',
+    leker:'Lấy', frissit:'↻ Làm mới', betumeret:'Cỡ chữ',
+    mentve:'✓ Đã lưu', nincs_tal:'Không có kết quả.', betolt:'Đang tải…',
+    db_free:'✓ 1 cơ sở dữ liệu miễn phí', db_paid:'+ Mỗi cơ sở thêm: $1',
+    db_sub:'Xuất luôn miễn phí · Dữ liệu của bạn là của bạn',
+    offline_tip:'🚫 Ngoại tuyến (không có AI)', kulcs_figy:'⚠ Nhập khóa API!',
+  }
+};
+
+let aktivLang = localStorage.getItem('mx_lang') || 'en';
+
+function tr(k) {
+  return (FORD[aktivLang] || FORD.en)[k] || (FORD.en)[k] || (FORD.hu)[k] || k;
+}
+
+window.langValaszt = function(lang) {
+  aktivLang = lang;
+  localStorage.setItem('mx_lang', lang);
+  langFrissit();
+};
+
+// Event listener – megbízhatóbb mint onchange="" module contextben
+document.getElementById('lang-select').addEventListener('change', e => {
+  aktivLang = e.target.value;
+  localStorage.setItem('mx_lang', aktivLang);
+  langFrissit();
+});
+
+function langFrissit() {
+  try {
+  const s = (id, k) => { const e = document.getElementById(id); if(e) e.textContent = tr(k); };
+  // Sidebar section titles
+  s('s-ai',   'ai_s');
+  s('s-db',   'db_s');
+  s('s-auto', 'auto_s');
+  s('s-look', 'look');
+  s('l-lang', 'l_lang');
+  // Tabs
+  document.getElementById('tab-chat').innerHTML   = '💬 ' + tr('chat');
+  document.getElementById('tab-bej').innerHTML    = '✏️ ' + tr('bejegyzes');
+  document.getElementById('tab-keres').innerHTML  = '🔍 ' + tr('kereses');
+  document.getElementById('tab-export').innerHTML = '📦 ' + tr('exp');
+  // Placeholders
+  const ui = document.getElementById('user-input');    if(ui) ui.placeholder = tr('input_ph');
+  const kq = document.getElementById('keres-q');       if(kq) kq.placeholder = tr('keres_ph');
+  const bh = document.getElementById('bej-horgonyok'); if(bh) bh.placeholder = tr('horg_ph');
+  // Prefix hint
+  const ph = document.getElementById('pfx-hint'); if(ph) ph.textContent = tr('hint_' + aktPrefix);
+  // Toggle
+  s('toggle-label', memexBe ? 'be' : 'ki');
+  // Offline option
+  const offOpt = document.querySelector('#api-type option[value="offline"]');
+  if(offOpt) offOpt.textContent = tr('offline_tip');
+  s('kulcs-figyelmeztet', 'kulcs_figy');
+  // Welcome üzenet
+  const wm = document.getElementById('welcome-msg');
+  if(wm) wm.textContent = tr('welcome');
+  // AI szekció labelek
+  s('l-aktiv', 'aktiv');
+  s('l-api-tipus', 'api_tipus');
+  s('l-api-kulcs', 'api_kulcs');
+  s('l-modell', 'modell');
+  s('btn-mentes', 'mentes');
+  s('l-osszes', 'osszes');
+  s('l-human', 'human');
+  s('l-frissit', 'frissit');
+  // API type options
+  const og = document.getElementById('opt-gemini'); if(og) og.textContent = tr('gemini_opt');
+  const oc = document.getElementById('opt-claude'); if(oc) oc.textContent = tr('claude_opt');
+  // Help overlay
+  s('help-close', 'help_close');
+  s('help-tagline', 'help_tagline');
+  s('help-h1', 'help_h1');
+  s('help-p1', 'help_p1');
+  s('help-h2', 'help_h2');
+  const hp2 = document.getElementById('help-p2'); if(hp2) hp2.innerHTML = tr('help_p2');
+  s('help-h3', 'help_h3');
+  s('help-li1', 'help_li1');
+  s('help-li2', 'help_li2');
+  s('help-li3', 'help_li3');
+  s('help-h4', 'help_h4');
+  s('help-p4', 'help_p4');
+  // Sidebar
+  s('l-betumeret', 'betumeret');
+  s('btn-app-frissit', 'app_frissit');
+  const mb = document.getElementById('mic-btn'); if(mb) mb.title = tr('mic_title');
+  s('l-a2a-info', 'a2a_info');
+  s('l-a2a-beta', 'a2a_beta');
+  a2aFrissit();
+  const gkl = document.getElementById('btn-gemini-key'); if(gkl) gkl.textContent = tr('gemini_key_link');
+  const ckl = document.getElementById('btn-claude-key'); if(ckl) ckl.textContent = tr('claude_key_link');
+  s('btn-gyari', 'gyari_visszaallitas');
+  // Bejegyzes tab
+  s('l-tartalom', 'tartalom');
+  s('l-horgonyok', 'horgonyok');
+  s('l-tipus', 'tipus');
+  s('l-fontossag', 'fontossag');
+  s('btn-bej-ment', 'mentes');
+  s('mentve-flash', 'mentve');
+  s('l-session-horg', 'session_horg');
+  const sh = document.getElementById('session-horgony'); if(sh) sh.placeholder = tr('session_horg_ph');
+  // Auto mentés fontossági selector
+  const af = document.getElementById('auto-fontossag');
+  if(af) { af.options[0].textContent = tr('f_normal'); af.options[1].textContent = tr('f_fontos'); af.options[2].textContent = tr('f_duma'); }
+  s('f1', 'f_kritikus'); s('f2', 'f_fontos'); s('f3', 'f_normal'); s('f4', 'f_duma');
+  // Search tab
+  s('keres-tipp', 'keres_tipp');
+  s('keres-sugo', 'keres_sugo');
+  s('ido-ma', 'ido_ma'); s('ido-tegnap', 'ido_tegnap'); s('ido-het', 'ido_het'); s('ido-honap', 'ido_honap');
+  // Export tab
+  s('l-db-free', 'db_free');
+  s('l-db-paid', 'db_paid');
+  s('l-db-sub', 'db_sub');
+  s('l-export-h', 'export_h');
+  s('l-exp-leiras', 'exp_leiras');
+  s('btn-exp', 'exp_btn');
+  s('l-uj-db-h', 'uj_db');
+  s('l-uj-db-leiras', 'uj_db_leiras');
+  const bujdb = document.getElementById('btn-uj-db'); if(bujdb) bujdb.textContent = '🗑 ' + tr('uj_db');
+  s('l-import-h', 'import_h');
+  s('l-imp-figy', 'imp_figy');
+  s('imp-fajl-lbl', 'fajl_valaszt');
+  s('l-imp-jelszo-info', 'imp_jelszo_info');
+  s('btn-imp-same', 'imp_same');
+  s('btn-imp-new', 'imp_new');
+  s('l-uuid-h', 'uuid_h');
+  s('btn-leker', 'leker');
+  // Placeholders
+  const ej = document.getElementById('exp-jelszo'); if(ej) ej.placeholder = tr('exp_pw');
+  const ij = document.getElementById('imp-jelszo'); if(ij) ij.placeholder = tr('imp_pw');
+  // Típus selector
+  const bt = document.getElementById('bej-tipus');
+  if(bt && bt.options.length >= 6) {
+    bt.options[1].textContent = tr('tip_dontes');
+    bt.options[2].textContent = tr('tip_otlet');
+    bt.options[3].textContent = tr('tip_hiba');
+    bt.options[5].textContent = tr('tip_projekt');
+  }
+  // Betűméret selector
+  const fsz = document.getElementById('font-size');
+  if(fsz && fsz.options.length >= 4) {
+    fsz.options[0].textContent = tr('meret_kis');
+    fsz.options[1].textContent = tr('meret_normal');
+    fsz.options[2].textContent = tr('meret_nagy');
+    fsz.options[3].textContent = tr('meret_nagyobb');
+  }
+  } catch(e) { console.error('[lang]', e); }
+}
+
+// init
+(function(){
+  const ls = document.getElementById('lang-select');
+  if (ls) ls.value = aktivLang;
+})();
+
+// ── Accordion ─────────────────────────────────────────────────────────────────
+
+window.accToggle = function(id) {
+  const body = document.getElementById('acc-' + id);
+  const arrow = document.getElementById('arr-' + id);
+  const closed = body.classList.toggle('closed');
+  arrow.classList.toggle('open', !closed);
+};
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+window.tabValt = function(nev) {
+  ['chat','bej','keres','export'].forEach(n => {
+    document.getElementById('tp-' + n).classList.toggle('active', n === nev);
+    document.getElementById('tab-' + n).classList.toggle('active', n === nev);
+  });
+};
+
+// ── Memex toggle ──────────────────────────────────────────────────────────────
+
+window.memexToggle = function() {
+  memexBe = !memexBe;
+  localStorage.setItem('mx_be', memexBe);
+  memexAllapotFrissit();
+};
+function memexAllapotFrissit() {
+  const t = document.getElementById('memex-toggle');
+  t.classList.toggle('on', memexBe);
+  document.getElementById('toggle-label').textContent = tr(memexBe ? 'be' : 'ki');
+}
+memexAllapotFrissit();
+
+// ── Help ──────────────────────────────────────────────────────────────────────
+
+window.helpNyit = function() { document.getElementById('help-overlay').classList.add('show'); };
+window.helpZar  = function() { document.getElementById('help-overlay').classList.remove('show'); };
+
+// ── Prefix ────────────────────────────────────────────────────────────────────
+
+window.prefixSet = function(p) {
+  aktPrefix = p;
+  ['db','ai','mix','agent'].forEach(x => {
+    const el = document.getElementById('pfx-' + x);
+    if (el) el.className = 'pfx' + (x === p ? ' p-' + x : '');
+  });
+  const ph = document.getElementById('pfx-hint');
+  if (ph) ph.textContent = tr('hint_' + p) || '';
+};
+
+// ── Fontosság ─────────────────────────────────────────────────────────────────
+
+window.fontSet = function(n) {
+  fontossag = n;
+  [1,2,3,4].forEach(i => {
+    const b = document.getElementById('f' + i);
+    b.className = 'f-btn' + (i === n ? ' sel-' + i : '');
+  });
+};
+
+// ── A2A Protocol toggle ───────────────────────────────────────────────────────
+
+function a2aFrissit() {
+  const be = localStorage.getItem('mx_a2a') === '1';
+  const btn = document.getElementById('btn-a2a');
+  if (!btn) return;
+  btn.textContent = be ? 'ON' : 'OFF';
+  btn.style.color = be ? 'var(--green)' : 'var(--text2)';
+  btn.style.borderColor = be ? 'var(--green)' : 'var(--border)';
+}
+
+window.a2aToggle = function() {
+  const be = localStorage.getItem('mx_a2a') === '1';
+  if (!be) {
+    if (!confirm(tr('a2a_info') + '\n\n' + (aktivLang === 'hu' ? 'Biztosan engedélyezed?' : 'Are you sure you want to enable this?'))) return;
+  } else {
+    if (!confirm(aktivLang === 'hu' ? 'A2A Protocol kikapcsolása – külső ágensek nem férnek hozzá az adatbázishoz.' : 'Disable A2A Protocol – external agents will no longer have access.')) return;
+  }
+  localStorage.setItem('mx_a2a', be ? '0' : '1');
+  a2aFrissit();
+};
+
+// ── Hangos bevitel ────────────────────────────────────────────────────────────
+
+let _voiceActive = false;
+let _voiceRec = null;
+let _voiceFlag = false; // true ha az aktuális üzenet hangos bevitelből jött
+
+window.mikrofon = function() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('A böngésző nem támogatja a hangos bevitelt. Használj Chrome-ot vagy Safarit.');
+    return;
+  }
+  const btn = document.getElementById('mic-btn');
+  if (_voiceActive) {
+    _voiceRec && _voiceRec.stop();
+    return;
+  }
+  _voiceRec = new SpeechRecognition();
+  _voiceRec.lang = aktivLang === 'hu' ? 'hu-HU' : aktivLang === 'de' ? 'de-DE' : aktivLang === 'fr' ? 'fr-FR' : 'en-US';
+  _voiceRec.continuous = false;
+  _voiceRec.interimResults = false;
+
+  _voiceRec.onstart = () => {
+    _voiceActive = true;
+    btn.classList.add('recording');
+  };
+  _voiceRec.onresult = (e) => {
+    const szoveg = e.results[0][0].transcript;
+    const ta = document.getElementById('user-input');
+    ta.value = (ta.value ? ta.value + ' ' : '') + szoveg;
+    _voiceFlag = true;
+  };
+  _voiceRec.onend = () => {
+    _voiceActive = false;
+    btn.classList.remove('recording');
+  };
+  _voiceRec.onerror = () => {
+    _voiceActive = false;
+    btn.classList.remove('recording');
+  };
+  _voiceRec.start();
+};
+
+// ── Session horgony ───────────────────────────────────────────────────────────
+
+window.sessionHorgonyFrissit = function() {
+  const v = document.getElementById('session-horgony').value;
+  document.getElementById('session-horgony-x').style.display = v ? 'block' : 'none';
+};
+window.sessionHorgonyTorol = function() {
+  document.getElementById('session-horgony').value = '';
+  document.getElementById('session-horgony-x').style.display = 'none';
+};
+function getSessionHorgonyok() {
+  const v = document.getElementById('session-horgony').value;
+  return v.match(/@\w+/g)?.map(h => h.slice(1)) || [];
+}
+
+// ── API beállítások ───────────────────────────────────────────────────────────
+
+function getApiTipus() { return localStorage.getItem('mx_api') || 'gemini'; }
+function getApiKey(tipus) { return localStorage.getItem('mx_key_' + (tipus || getApiTipus())) || ''; }
+function getModel() { return localStorage.getItem('mx_model') || ''; }
+
+window.apiValtozas = function() {
+  const t = document.getElementById('api-type').value;
+  localStorage.setItem('mx_api', t);
+  document.getElementById('kulcs-block').style.display = t === 'offline' ? 'none' : 'block';
+  document.getElementById('model-block').style.display = t === 'offline' ? 'none' : 'block';
+  document.getElementById('api-aktiv').textContent = t;
+  // Kulcs előtöltés
+  const k = getApiKey(t);
+  document.getElementById('api-key').value = k || '';
+  // Figyelmeztetés ha nincs kulcs
+  const figy = document.getElementById('kulcs-figyelmeztet');
+  figy.style.display = (t !== 'offline' && !k) ? 'block' : 'none';
+  // Modellek
+  modelekFrissit(t);
+  // conn-info
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  if (_dbKesz) {
+    dot.className = t === 'offline' || !k ? 'dot-warn' : 'dot-ok';
+    const modell = localStorage.getItem('mx_model_' + t) || t;
+    txt.textContent = ' ' + (t === 'offline' ? tr('offline_mod') : k ? modell : t + tr('kulcs_hianyz'));
+  }
+};
+// Event listenerek – megbízhatóbbak mint onchange="" module contextben
+document.getElementById('api-type').addEventListener('change', () => window.apiValtozas());
+document.getElementById('model-select').addEventListener('change', e => window.modelKivalaszt(e.target.value));
+document.getElementById('font-size').addEventListener('change', e => window.fontSizeSet(e.target.value));
+
+// Inicializálás
+document.getElementById('api-type').value = getApiTipus();
+window.apiValtozas();
+langFrissit();
+
+window.kulcsMent = async function() {
+  const t = document.getElementById('api-type').value;
+  const k = document.getElementById('api-key').value.trim();
+  if (!k) { alert('Üres kulcs!'); return; }
+  localStorage.setItem('mx_key_' + t, k);
+  document.getElementById('kulcs-figyelmeztet').style.display = 'none';
+  apiValtozas(); // conn-info frissítés
+  await modelekFrissit(t); // modelleket is lekéri azonnal
+};
+
+async function modelekFrissit(tipus) {
+  const sel = document.getElementById('model-select');
+  const info = document.getElementById('kulcs-info');
+  if (tipus === 'offline') { sel.innerHTML = ''; return; }
+
+  const kulcs = getApiKey(tipus);
+  if (!kulcs) { sel.innerHTML = `<option value="">${tr('modell_kulcs_kell')}</option>`; return; }
+
+  sel.innerHTML = `<option value="">${tr('betolt')}</option>`;
+  try {
+    let modelek = [];
+
+    if (tipus === 'gemini') {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${kulcs}`
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      modelek = (d.models || [])
+        .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map(m => ({ id: m.name.replace('models/', ''), nev: m.displayName || m.name }));
+
+    } else if (tipus === 'claude') {
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/models', {
+          headers: {
+            'x-api-key': kulcs,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          }
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+        modelek = (d.data || [])
+          .filter(m => m.id.startsWith('claude'))
+          .map(m => ({ id: m.id, nev: m.display_name || m.id }));
+      } catch(_) {
+        // CORS fallback – legújabb modellek
+        modelek = [
+          { id: 'claude-opus-4-6',           nev: 'Claude Opus 4.6' },
+          { id: 'claude-sonnet-4-6',         nev: 'Claude Sonnet 4.6' },
+          { id: 'claude-haiku-4-5-20251001', nev: 'Claude Haiku 4.5' },
+        ];
+      }
+    }
+
+    sel.innerHTML = '';
+    const saved = localStorage.getItem('mx_model') || '';
+    modelek.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id; opt.textContent = m.nev;
+      if (m.id === saved) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (sel.options.length) {
+      if (!saved || !sel.querySelector(`option[value="${saved}"]`)) {
+        localStorage.setItem('mx_model', sel.options[0].value);
+      }
+    }
+    if (info) info.innerHTML = `<span style="color:var(--green)">${modelek.length} modell elérhető</span>`;
+    setTimeout(() => { if(info) info.textContent = ''; }, 3000);
+
+  } catch(e) {
+    sel.innerHTML = `<option value="">${tr('modell_hiba')}</option>`;
+    if (info) info.textContent = 'Modell lekérés hiba: ' + e.message;
+  }
+}
+window.modelKivalaszt = function(v) { localStorage.setItem('mx_model', v); };
+
+// ── Közvetlen AI hívás ────────────────────────────────────────────────────────
+
+// ── AI Agent (tool calling) ────────────────────────────────────────────────────
+
+const AGENT_TOOLS = {
+  claude: [{
+    name: 'db_search',
+    description: 'Search the user\'s personal memory database for relevant entries.',
+    input_schema: { type: 'object', properties: { query: { type: 'string', description: 'Search query' } }, required: ['query'] }
+  }, {
+    name: 'db_save',
+    description: 'Save a new entry to the user\'s personal memory database.',
+    input_schema: { type: 'object', properties: { content: { type: 'string', description: 'Content to save' } }, required: ['content'] }
+  }],
+  gemini: [{ functionDeclarations: [{
+    name: 'db_search',
+    description: 'Search the user\'s personal memory database for relevant entries.',
+    parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' } }, required: ['query'] }
+  }, {
+    name: 'db_save',
+    description: 'Save a new entry to the user\'s personal memory database.',
+    parameters: { type: 'OBJECT', properties: { content: { type: 'STRING' } }, required: ['content'] }
+  }]}]
+};
+
+async function agentToolVegrehajt(name, args) {
+  if (name === 'db_search') {
+    const eredmenyek = await keres(args.query, 5);
+    if (!eredmenyek.length) return 'No results found.';
+    return eredmenyek.map(r => `[${r.idobelyeg?.slice(0,10)}] ${r.tartalom}`).join('\n\n');
+  }
+  if (name === 'db_save') {
+    await bejegyez({ tartalom: args.content, horgonyok: ['agent'], fontossag: 3, iro: 'human' });
+    await statFrissit();
+    return 'Saved successfully.';
+  }
+  return 'Unknown tool.';
+}
+
+async function agentHivas(uzenet) {
+  const tipus = getApiTipus();
+  const kulcs = getApiKey(tipus);
+  const modell = getModel();
+  if (tipus === 'offline' || !kulcs) return '[Agent mód: Claude vagy Gemini API kulcs szükséges.]';
+  if (tipus !== 'gemini' && tipus !== 'claude') return '[Agent mód csak Gemini és Claude esetén elérhető.]';
+
+  const rendszer = 'You are a personal memory assistant. Use db_search to find information in the user\'s database, db_save to remember new things. If you use a tool, always summarize the result for the user.';
+
+  if (tipus === 'claude') return await claudeAgentHivas(uzenet, rendszer, kulcs, modell || 'claude-haiku-4-5-20251001');
+  if (tipus === 'gemini') {
+    const agentModell = (modell && !modell.startsWith('gemma')) ? modell : 'gemini-2.0-flash';
+    return await geminiAgentHivas(uzenet, rendszer, kulcs, agentModell);
+  }
+}
+
+async function claudeAgentHivas(uzenet, rendszer, kulcs, modell) {
+  const url = 'https://api.anthropic.com/v1/messages';
+  let messages = [{ role: 'user', content: uzenet }];
+
+  for (let i = 0; i < 5; i++) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': kulcs, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: modell, max_tokens: 1024, system: rendszer, tools: AGENT_TOOLS.claude, messages })
+    });
+    if (!r.ok) { const e = await r.text(); throw new Error(`Claude ${r.status}: ${e.slice(0,200)}`); }
+    const d = await r.json();
+
+    if (d.stop_reason === 'end_turn') {
+      return d.content?.find(c => c.type === 'text')?.text || '[Üres válasz]';
+    }
+    if (d.stop_reason === 'tool_use') {
+      messages.push({ role: 'assistant', content: d.content });
+      const toolResults = [];
+      for (const block of d.content) {
+        if (block.type === 'tool_use') {
+          const result = await agentToolVegrehajt(block.name, block.input);
+          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+        }
+      }
+      messages.push({ role: 'user', content: toolResults });
+    } else break;
+  }
+  return '[Agent: nem sikerült befejezni]';
+}
+
+async function geminiAgentHivas(uzenet, rendszer, kulcs, modell) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modell}:generateContent?key=${kulcs}`;
+  let contents = [{ role: 'user', parts: [{ text: uzenet }] }];
+
+  for (let i = 0; i < 5; i++) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents, tools: AGENT_TOOLS.gemini, systemInstruction: { parts: [{ text: rendszer }] } })
+    });
+    if (!r.ok) { const e = await r.text(); throw new Error(`Gemini ${r.status}: ${e.slice(0,200)}`); }
+    const d = await r.json();
+    const parts = d.candidates?.[0]?.content?.parts || [];
+    const funcCall = parts.find(p => p.functionCall);
+
+    if (!funcCall) {
+      return parts.find(p => p.text)?.text || '[Üres válasz]';
+    }
+
+    contents.push({ role: 'model', parts });
+    const result = await agentToolVegrehajt(funcCall.functionCall.name, funcCall.functionCall.args);
+    contents.push({ role: 'user', parts: [{ functionResponse: { name: funcCall.functionCall.name, response: { result } } }] });
+  }
+  return '[Agent: nem sikerült befejezni]';
+}
+
+async function aiHivas(uzenet, rendszer = '') {
+  const tipus = getApiTipus();
+  const kulcs = getApiKey(tipus);
+  const modell = getModel();
+
+  if (tipus === 'offline') {
+    return '[Offline mód – AI nélkül. Válts Gemini vagy Claude típusra az oldalsávban, és adj meg API kulcsot.]';
+  }
+  if (!kulcs) {
+    return `[Nincs API kulcs! Az oldalsávban válaszd a(z) "${tipus}" típust, írd be a kulcsodat, és nyomj Mentés.]`;
+  }
+
+  if (tipus === 'gemini') {
+    return await geminiHivas(uzenet, rendszer, kulcs, modell || 'gemini-2.0-flash');
+  } else if (tipus === 'claude') {
+    return await claudeHivas(uzenet, rendszer, kulcs, modell || 'claude-haiku-4-5-20251001');
+  }
+  return '[Ismeretlen AI típus]';
+}
+
+async function geminiHivas(uzenet, rendszer, kulcs, modell) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modell}:generateContent?key=${kulcs}`;
+  // gemma modellek nem támogatják a systemInstruction-t
+  const gemmaModell = modell.startsWith('gemma');
+  const teljesUzenet = (gemmaModell && rendszer) ? rendszer + '\n\n' + uzenet : uzenet;
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: teljesUzenet }] }],
+    ...(!gemmaModell && rendszer ? { systemInstruction: { parts: [{ text: rendszer }] } } : {})
+  };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(`Gemini ${r.status}: ${err.slice(0, 200)}`);
+  }
+  const d = await r.json();
+  _lastApiTokens = (d.usageMetadata?.promptTokenCount || 0) + (d.usageMetadata?.candidatesTokenCount || 0);
+  return d.candidates?.[0]?.content?.parts?.[0]?.text || '[Üres válasz]';
+}
+
+async function claudeHivas(uzenet, rendszer, kulcs, modell) {
+  const url = 'https://api.anthropic.com/v1/messages';
+  const body = {
+    model: modell,
+    max_tokens: 1024,
+    messages: [{ role: 'user', content: uzenet }],
+    ...(rendszer ? { system: rendszer } : {})
+  };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': kulcs,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(`Claude ${r.status}: ${err.slice(0, 200)}`);
+  }
+  const d = await r.json();
+  _lastApiTokens = (d.usage?.input_tokens || 0) + (d.usage?.output_tokens || 0);
+  return d.content?.[0]?.text || '[Üres válasz]';
+}
+
+// ── Chat Sessions ─────────────────────────────────────────────────────────────
+
+let aktivSessionId = null;
+
+async function sessionListaFrissit() {
+  const lista = await sessionLista();
+  const el = document.getElementById('chat-sess-list');
+  el.innerHTML = '';
+  for (const sess of lista) {
+    const item = document.createElement('div');
+    item.className = 'chat-sess-item' + (sess.id === aktivSessionId ? ' active' : '');
+    item.dataset.sessId = sess.id;
+
+    const name = document.createElement('span');
+    name.className = 'chat-sess-name';
+    name.textContent = sess.nev;
+    name.title = sess.nev;
+    name.onclick = () => chatSessionValt(sess.id);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'chat-sess-btn';
+    editBtn.textContent = '✏';
+    editBtn.title = 'Rename';
+    editBtn.onclick = (e) => { e.stopPropagation(); chatSessionAtnevezUI(sess.id, item); };
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'chat-sess-btn chat-sess-del';
+    delBtn.textContent = '×';
+    delBtn.title = 'Delete';
+    delBtn.onclick = (e) => { e.stopPropagation(); chatSessionTorlesSess(sess.id); };
+
+    item.appendChild(name);
+    item.appendChild(editBtn);
+    item.appendChild(delBtn);
+    el.appendChild(item);
+  }
+}
+
+window.ujChatSession = async function() {
+  const id = await sessionLetrehoz('New Chat');
+  aktivSessionId = id;
+  localStorage.setItem('mx_sess_id', id);
+  const area = document.getElementById('chat-area');
+  area.innerHTML = '';
+  const wb = document.getElementById('welcome-msg');
+  if (wb) wb.textContent = tr('welcome');
+  await sessionListaFrissit();
+};
+
+async function chatSessionValt(id) {
+  aktivSessionId = id;
+  localStorage.setItem('mx_sess_id', id);
+  const area = document.getElementById('chat-area');
+  area.innerHTML = '';
+  const uzenetek = await sessionUzenetek(id);
+  for (const u of uzenetek) {
+    const szerep = u.iro === 'human' ? 'human' : 'ai';
+    const szoveg = u.tartalom.startsWith('K: ') ? u.tartalom.slice(3)
+                 : u.tartalom.startsWith('V: ') ? u.tartalom.slice(3)
+                 : u.tartalom;
+    chatUzenet(szoveg, szerep, null);
+  }
+  await sessionListaFrissit();
+}
+
+async function chatSessionTorlesSess(id) {
+  await sessionTorol(id);
+  if (aktivSessionId === id) {
+    localStorage.removeItem('mx_sess_id');
+    aktivSessionId = null;
+    const lista = await sessionLista();
+    if (lista.length > 0) {
+      await chatSessionValt(lista[0].id);
+    } else {
+      await window.ujChatSession();
+    }
+  } else {
+    await sessionListaFrissit();
+  }
+}
+
+function chatSessionAtnevezUI(id, item) {
+  const nameEl = item.querySelector('.chat-sess-name');
+  const huNev = nameEl.textContent;
+  const input = document.createElement('input');
+  input.className = 'chat-sess-name-input';
+  input.value = huNev;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const ment = async () => {
+    const ujNev = input.value.trim() || huNev;
+    await sessionAtnevez(id, ujNev);
+    await sessionListaFrissit();
+  };
+  input.onblur = ment;
+  input.onkeydown = e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = huNev; input.blur(); }
+  };
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+
+window.kuld = async function() {
+  if (!_dbKesz) { alert('Az adatbázis még betölt…'); return; }
+  const ta = document.getElementById('user-input');
+  const kerdes = ta.value.trim();
+  if (!kerdes) return;
+  ta.value = '';
+  ta.style.height = '';
+
+  const send = document.getElementById('send-btn');
+  send.disabled = true;
+
+  // User üzenet megjelenítés
+  chatUzenet(kerdes, 'human');
+
+  // Typing jelző
+  const typingId = chatTyping();
+
+  try {
+    let dbTalalatok = [];
+    let aiValasz = '';
+    let mod = aktPrefix;
+
+    // Agent mód
+    if (mod === 'agent') {
+      aiValasz = await agentHivas(kerdes);
+    } else {
+    // DB keresés
+    if (mod === 'db' || mod === 'mix') {
+      dbTalalatok = await keres(kerdes, 200);
+    }
+
+    // AI hívás
+    if (mod === 'ai' || mod === 'mix') {
+      let rendszer = await systemPromptBuild();
+      if (dbTalalatok.length) {
+        rendszer += '\n\n=== RELEVÁNS ADATBÁZIS ===\n';
+        dbTalalatok.forEach(r => {
+          rendszer += `[${r.idobelyeg?.slice(0,10)}] ${r.tartalom?.slice(0,200)}\n`;
+        });
+      }
+      aiValasz = await aiHivas(kerdes, rendszer);
+      tokenHozzaad(_lastApiTokens);
+    }
+    }
+
+    // Typing eltávolítás
+    chatTypingTorol(typingId);
+
+    // Válasz megjelenítés
+    if (mod === 'db' && dbTalalatok.length > 0) {
+      let szoveg = dbTalalatok.map(r =>
+        `[${r.idobelyeg?.slice(0,10)}] ${r.tartalom}`
+      ).join('\n\n');
+      chatUzenet(szoveg, 'ai', 'db');
+    } else if (mod === 'mix') {
+      if (dbTalalatok.length > 0) {
+        let szoveg = dbTalalatok.map(r =>
+          `[${r.idobelyeg?.slice(0,10)}] ${r.tartalom}`
+        ).join('\n\n');
+        chatUzenet(szoveg, 'ai', 'db');
+      }
+      if (aiValasz) chatUzenet(aiValasz, 'ai', 'mix');
+      if (!dbTalalatok.length && !aiValasz) chatUzenet('Nem találtam releváns bejegyzést.', 'ai', 'db');
+    } else if (aiValasz) {
+      chatUzenet(aiValasz, 'ai', mod === 'agent' ? 'agent' : 'ai');
+    } else {
+      chatUzenet('Nem találtam releváns bejegyzést.', 'ai', 'db');
+    }
+
+    // Auto mentés
+    if (memexBe) {
+      const sessionH = getSessionHorgonyok();
+      const autoFont = parseInt(document.getElementById('auto-fontossag').value) || 4;
+      const voiceH = _voiceFlag ? ['voice'] : [];
+      _voiceFlag = false;
+      await bejegyez({ tartalom: 'K: ' + kerdes, horgonyok: ['chat',...voiceH,...sessionH], fontossag: autoFont, iro: 'human', session_id: aktivSessionId });
+      if (aiValasz) {
+        if (szavakSzama(aiValasz) > 500) {
+          const chunks = szovegDarabol(aiValasz);
+          for (const chunk of chunks)
+            await bejegyez({ tartalom: 'V: ' + chunk, horgonyok: ['chat',...sessionH], fontossag: autoFont, iro: 'ai', session_id: aktivSessionId });
+        } else {
+          await bejegyez({ tartalom: 'V: ' + aiValasz, horgonyok: ['chat',...sessionH], fontossag: autoFont, iro: 'ai', session_id: aktivSessionId });
+        }
+      }
+      // Auto-rename: ha az első üzenet és a session neve még "New Chat"
+      if (aktivSessionId) {
+        const lista = await sessionLista();
+        const aktSess = lista.find(s => s.id === aktivSessionId);
+        if (aktSess && aktSess.nev === 'New Chat') {
+          await sessionAtnevez(aktivSessionId, kerdes.slice(0, 35));
+          await sessionListaFrissit();
+        }
+      }
+      await statFrissit();
+    }
+  } catch(e) {
+    chatTypingTorol(typingId);
+    chatUzenet('Hiba: ' + e.message, 'ai', 'ai');
+  } finally {
+    send.disabled = false;
+    ta.focus();
+  }
+};
+
+function chatUzenet(szoveg, szerep, mod) {
+  const area = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.className = 'msg ' + szerep;
+
+  const avDiv = document.createElement('div');
+  avDiv.className = 'av ' + (szerep === 'human' ? 'h' : 'a');
+  avDiv.textContent = szerep === 'human' ? 'Te' : 'M';
+
+  const inner = document.createElement('div');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = szoveg;
+  inner.appendChild(bubble);
+
+  if (mod) {
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const tag = document.createElement('span');
+    tag.className = 'rtag r-' + mod;
+    tag.textContent = mod.toUpperCase();
+    meta.appendChild(tag);
+    inner.appendChild(meta);
+  }
+
+  div.appendChild(avDiv);
+  div.appendChild(inner);
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function chatTyping() {
+  const area = document.getElementById('chat-area');
+  const id = 'typing-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'msg ai'; div.id = id;
+  div.innerHTML = '<div class="av a">M</div><div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div></div>';
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return id;
+}
+
+function chatTypingTorol(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ── Bejegyzés ─────────────────────────────────────────────────────────────────
+
+// ── Daraboló ──────────────────────────────────────────────────────────────────
+
+function szavakSzama(s) { return s.split(/\s+/).filter(w => w).length; }
+
+function szovegDarabol(szoveg, maxSzavak=500) {
+  const paras = szoveg.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
+  const chunks = []; let cur = '';
+  for (const para of paras) {
+    if (szavakSzama(para) > maxSzavak) {
+      if (cur) { chunks.push(cur.trim()); cur = ''; }
+      const sents = para.match(/[^.!?]+[.!?]+\s*/g) || [para];
+      let sub = '';
+      for (const s of sents) {
+        if (szavakSzama(sub+s) > maxSzavak && sub) { chunks.push(sub.trim()); sub = s; }
+        else sub += s;
+      }
+      if (sub.trim()) chunks.push(sub.trim());
+    } else if (cur && szavakSzama(cur+'\n\n'+para) > maxSzavak) {
+      chunks.push(cur.trim()); cur = para;
+    } else { cur = cur ? cur+'\n\n'+para : para; }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks.length ? chunks : [szoveg];
+}
+
+let chunkMode = localStorage.getItem('mx_chunk') === '1';
+
+window.chunkToggle = function() {
+  chunkMode = !chunkMode;
+  localStorage.setItem('mx_chunk', chunkMode ? '1' : '0');
+  const btn = document.getElementById('btn-chunk-toggle');
+  if (btn) {
+    btn.style.borderColor = chunkMode ? 'var(--orange)' : 'var(--text2)';
+    btn.style.color = chunkMode ? 'var(--orange)' : 'var(--text2)';
+  }
+};
+
+// init chunk gomb állapot
+(function() {
+  if (chunkMode) {
+    const btn = document.getElementById('btn-chunk-toggle');
+    if (btn) { btn.style.borderColor = 'var(--orange)'; btn.style.color = 'var(--orange)'; }
+  }
+})();
+
+window.bejMent = async function() {
+  if (!_dbKesz) return;
+  const tartalom = document.getElementById('bej-tartalom').value.trim();
+  if (!tartalom) { alert('Üres tartalom!'); return; }
+  const horgonyokStr = document.getElementById('bej-horgonyok').value;
+  const horgonyok = [...horgonyokStr.split(/[,\s]+/).map(h => h.trim()).filter(Boolean), ...getSessionHorgonyok()];
+  const tipus = document.getElementById('bej-tipus').value;
+  const fl = document.getElementById('chunk-flash');
+
+  const autoChunk = chunkMode || szavakSzama(tartalom) > 500;
+  if (autoChunk) {
+    const chunks = szovegDarabol(tartalom);
+    for (const chunk of chunks)
+      await bejegyez({ tartalom: chunk, horgonyok, fontossag, tipus, iro: 'human' });
+    document.getElementById('bej-tartalom').value = '';
+    document.getElementById('bej-horgonyok').value = '';
+    document.getElementById('bej-tipus').value = '';
+    fontSet(3);
+    if (fl) { fl.textContent = '✓ ' + chunks.length + ' db'; setTimeout(() => fl.textContent = '', 3000); }
+  } else {
+    await bejegyez({ tartalom, horgonyok, fontossag, tipus, iro: 'human' });
+    document.getElementById('bej-tartalom').value = '';
+    document.getElementById('bej-horgonyok').value = '';
+    document.getElementById('bej-tipus').value = '';
+    fontSet(3);
+    const mfl = document.getElementById('mentve-flash');
+    if (mfl) { mfl.style.display = 'block'; setTimeout(() => mfl.style.display = 'none', 2000); }
+  }
+  await statFrissit();
+};
+
+// ── Keresés – gyorsgombok ─────────────────────────────────────────────────────
+
+window.idoGomb = function(btn) {
+  document.querySelectorAll('#ido-gombok .pfx').forEach(b => b.classList.remove('p-db'));
+  btn.classList.add('p-db');
+  document.getElementById('keres-q').value = btn.dataset.v;
+  keresFutat();
+};
+
+// ── Keresés – időszűrő parser ─────────────────────────────────────────────────
+
+function idoParse(q) {
+  const ma = new Date(); ma.setHours(0,0,0,0);
+  const holnap = new Date(ma); holnap.setDate(holnap.getDate()+1);
+  let tol = null, ig = null, maradek = q;
+
+  const honap = {
+    januar:0,january:0,jan:0, februar:1,february:1,feb:1,
+    marcius:2,march:2,mar:2, aprilis:3,april:3,apr:3,
+    majus:4,may:4, junius:5,june:5,jun:5,
+    julius:6,july:6,jul:6, augusztus:7,august:7,aug:7,
+    szeptember:8,september:8,sep:8, oktober:9,october:9,oct:9,
+    november:10,nov:10, december:11,dec:11
+  };
+
+  // "tegnap" / "yesterday"
+  if (/\b(tegnap|yesterday)\b/i.test(q)) {
+    tol = new Date(ma); tol.setDate(tol.getDate()-1); ig = new Date(ma);
+    maradek = q.replace(/\b(tegnap|yesterday)\b/i,'').trim();
+  }
+  // "ma" / "today"
+  else if (/\b(ma|today)\b/i.test(q)) {
+    tol = new Date(ma); ig = new Date(holnap);
+    maradek = q.replace(/\b(ma|today)\b/i,'').trim();
+  }
+  // "múlt héten" / "last week" / "ezen a héten" / "this week"
+  else if (/\b(m[uú]lt\s+h[eé]ten|last\s+week)\b/i.test(q)) {
+    tol = new Date(ma); tol.setDate(tol.getDate()-7); ig = new Date(holnap);
+    maradek = q.replace(/\b(m[uú]lt\s+h[eé]ten|last\s+week)\b/i,'').trim();
+  }
+  else if (/\b(ezen\s+a\s+h[eé]ten|this\s+week)\b/i.test(q)) {
+    tol = new Date(ma); tol.setDate(tol.getDate()-tol.getDay()); ig = new Date(holnap);
+    maradek = q.replace(/\b(ezen\s+a\s+h[eé]ten|this\s+week)\b/i,'').trim();
+  }
+  // "múlt hónapban" / "last month"
+  else if (/\b(m[uú]lt\s+h[oó]napban|last\s+month)\b/i.test(q)) {
+    tol = new Date(ma); tol.setDate(tol.getDate()-30); ig = new Date(holnap);
+    maradek = q.replace(/\b(m[uú]lt\s+h[oó]napban|last\s+month)\b/i,'').trim();
+  }
+  // "N napja" / "N days ago"
+  else {
+    const m1 = q.match(/\b(\d+)\s*(nap(?:ja)?|days?\s*ago)\b/i);
+    if (m1) { tol = new Date(ma); tol.setDate(tol.getDate()-parseInt(m1[1])); ig = new Date(holnap); maradek = q.replace(m1[0],'').trim(); }
+    // "N hete" / "N weeks ago"
+    const m2 = q.match(/\b(\d+)\s*(het[e]?|weeks?\s*ago)\b/i);
+    if (m2) { tol = new Date(ma); tol.setDate(tol.getDate()-parseInt(m2[1])*7); ig = new Date(holnap); maradek = q.replace(m2[0],'').trim(); }
+    // "N hónapja" / "N months ago"
+    const m3 = q.match(/\b(\d+)\s*(h[oó]nap(?:ja)?|months?\s*ago)\b/i);
+    if (m3) { tol = new Date(ma); tol.setMonth(tol.getMonth()-parseInt(m3[1])); ig = new Date(holnap); maradek = q.replace(m3[0],'').trim(); }
+    // Hónap neve: "januárban", "in january"
+    const m4 = q.match(/\b(?:in\s+)?(januar[a-z]*|februar[a-z]*|marcius[a-z]*|aprilis[a-z]*|majus[a-z]*|junius[a-z]*|julius[a-z]*|augusztus[a-z]*|szeptember[a-z]*|oktober[a-z]*|november[a-z]*|december[a-z]*|january|february|march|april|may|june|july|august|september|october|november|dec)\b/i);
+    if (m4) {
+      const kulcs = m4[1].toLowerCase().replace(/[áéíóöőúüű]/g, c => ({'á':'a','é':'e','í':'i','ó':'o','ö':'o','ő':'o','ú':'u','ü':'u','ű':'u'}[c]||c)).replace(/ban$|ben$/,'');
+      const hIdx = honap[kulcs];
+      if (hIdx !== undefined) {
+        const ev = new Date().getFullYear();
+        tol = new Date(ev, hIdx, 1); ig = new Date(ev, hIdx+1, 1);
+        maradek = q.replace(m4[0],'').trim();
+      }
+    }
+  }
+  return tol ? { tol, ig, maradek } : null;
+}
+
+function idoSzuro(eredmenyek, tol, ig) {
+  return eredmenyek.filter(r => {
+    const d = new Date(r.idobelyeg);
+    return d >= tol && d < ig;
+  });
+}
+
+// ── Kapcsolódó bejegyzések ────────────────────────────────────────────────────
+
+async function kapcsolodoKeres(forras, kizartSorszam) {
+  const horgonyok = JSON.parse(forras.horgonyok || '[]').filter(h => h !== 'chat' && h !== 'voice');
+  const szavak = forras.tartalom.replace(/^[KV]: /,'').toLowerCase()
+    .split(/\s+/).filter(s => s.length > 4).slice(0, 8);
+
+  if (!horgonyok.length && !szavak.length) return [];
+
+  const osszes = await keres(szavak[0] || horgonyok[0] || '', 50);
+  return osszes
+    .filter(r => r.sorszam !== kizartSorszam)
+    .filter(r => {
+      const rH = JSON.parse(r.horgonyok || '[]');
+      const vanHorgony = horgonyok.some(h => rH.includes(h));
+      const vanSzo = szavak.some(s => r.tartalom.toLowerCase().includes(s));
+      return vanHorgony || vanSzo;
+    })
+    .slice(0, 3);
+}
+
+window.kapcsolodoMutat = async function(sorszam, tartalom, horgonyok, btn) {
+  const szulo = btn.closest('.talalat-item');
+  let lista = szulo.querySelector('.kapcsolodo-lista');
+  if (lista) { lista.remove(); btn.textContent = tr('kapcsolodo'); return; }
+
+  btn.textContent = '⏳';
+  const kapcsolodok = await kapcsolodoKeres({ sorszam, tartalom, horgonyok }, sorszam);
+  lista = document.createElement('div');
+  lista.className = 'kapcsolodo-lista';
+  if (!kapcsolodok.length) {
+    lista.innerHTML = `<div class="kapcsolodo-item">${tr('kapcsolodo_nincs')}</div>`;
+  } else {
+    kapcsolodok.forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'kapcsolodo-item';
+      d.textContent = r.idobelyeg?.slice(0,10) + ' – ' + r.tartalom.slice(0,100);
+      lista.appendChild(d);
+    });
+  }
+  szulo.appendChild(lista);
+  btn.textContent = tr('kapcsolodo');
+};
+
+// ── Keresés ───────────────────────────────────────────────────────────────────
+
+async function keresStat(megjelenit, talalat, osszes) {
+  const el = document.getElementById('keres-stat');
+  if (!el) return;
+  el.style.display = '';
+  let szoveg = `🔍 ${megjelenit}`;
+  if (talalat > megjelenit) szoveg += ` / ${talalat} found`;
+  szoveg += `  ·  🗄 ${osszes} in DB`;
+  el.textContent = szoveg;
+}
+
+window.keresFutat = async function() {
+  if (!_dbKesz) return;
+  const q = document.getElementById('keres-q').value.trim();
+  if (!q) return;
+  const lista = document.getElementById('talalat-lista');
+  lista.innerHTML = '';
+
+  const idoEredmeny = idoParse(q);
+  const keresQ = (idoEredmeny ? idoEredmeny.maradek : q).replace(/@(\w+)/g, '$1').trim();
+
+  let eredmenyek = keresQ ? await keres(keresQ, 50, false) : await legutobbi(200, false);
+  if (idoEredmeny) {
+    eredmenyek = idoSzuro(eredmenyek, idoEredmeny.tol, idoEredmeny.ig);
+    const hint = document.createElement('div');
+    hint.className = 'ido-hint';
+    hint.textContent = tr('ido_szuro') + ' ' + idoEredmeny.tol.toLocaleDateString() + ' – ' + idoEredmeny.ig.toLocaleDateString();
+    lista.appendChild(hint);
+  }
+
+  const statOssz = (await statisztika()).ossz;
+  if (!eredmenyek.length) {
+    keresStat(0, 0, statOssz);
+    lista.innerHTML += `<div class="small">${tr('nincs_tal')}</div>`;
+    return;
+  }
+
+  const talalat = eredmenyek.length;
+  const mutat = Math.min(talalat, 30);
+  keresStat(mutat, talalat, statOssz);
+
+  eredmenyek.slice(0,30).forEach(r => {
+    const hArr = JSON.parse(r.horgonyok || '[]');
+    const div = document.createElement('div');
+    div.className = 'talalat-item';
+    const meta = document.createElement('div');
+    meta.className = 'talalat-meta';
+    const kBtn = document.createElement('button');
+    kBtn.className = 'kapcsolodo-btn';
+    kBtn.textContent = tr('kapcsolodo');
+    kBtn.onclick = () => kapcsolodoMutat(r.sorszam, r.tartalom, r.horgonyok, kBtn);
+    meta.innerHTML = `<span class="${r.iro==='human'?'iro-h':'iro-ai'}">${r.iro||'?'}</span>
+      <span>${r.idobelyeg?.slice(0,10)||''}</span>
+      <span style="color:var(--orange)">${r.tipus||''}</span>
+      <span style="color:var(--text2)">${hArr.join(' ')}</span>`;
+    meta.appendChild(kBtn);
+    const szoveg = document.createElement('div');
+    szoveg.className = 'talalat-szoveg';
+    szoveg.textContent = r.tartalom;
+    div.appendChild(meta);
+    div.appendChild(szoveg);
+    lista.appendChild(div);
+  });
+};
+
+window.osszesMutat = async function() {
+  if (!_dbKesz) return;
+  document.getElementById('keres-q').value = '';
+  const lista = document.getElementById('talalat-lista');
+  lista.innerHTML = '';
+
+  const mindenki = (await legutobbi(9999, false)).sort((a, b) => b.sorszam - a.sorszam);
+
+  const limit = 500;
+  const db_count = mindenki.length;
+  const mutat = Math.min(db_count, limit);
+  keresStat(mutat, db_count, db_count);
+
+  mindenki.slice(0, limit).forEach(r => {
+    const hArr = JSON.parse(r.horgonyok || '[]');
+    const div = document.createElement('div');
+    div.className = 'talalat-item';
+    const meta = document.createElement('div');
+    meta.className = 'talalat-meta';
+    const kBtn = document.createElement('button');
+    kBtn.className = 'kapcsolodo-btn';
+    kBtn.textContent = tr('kapcsolodo');
+    kBtn.onclick = () => kapcsolodoMutat(r.sorszam, r.tartalom, r.horgonyok, kBtn);
+    meta.innerHTML = `<span class="${r.iro==='human'?'iro-h':'iro-ai'}">${r.iro||'?'}</span>
+      <span>${r.idobelyeg?.slice(0,10)||''}</span>
+      <span style="color:var(--orange)">${r.tipus||''}</span>
+      <span style="color:var(--text2)">${hArr.join(' ')}</span>`;
+    meta.appendChild(kBtn);
+    const szoveg = document.createElement('div');
+    szoveg.className = 'talalat-szoveg';
+    szoveg.textContent = r.tartalom;
+    div.appendChild(meta);
+    div.appendChild(szoveg);
+    lista.appendChild(div);
+  });
+};
+
+// ── Stat ──────────────────────────────────────────────────────────────────────
+
+window.statFrissit = async function() {
+  if (!_dbKesz) return;
+  try {
+    const s = await statisztika();
+    document.getElementById('stat-ossz').textContent = s.ossz;
+    document.getElementById('stat-human').textContent = s.human;
+    document.getElementById('stat-ai').textContent = s.ai;
+  } catch(e) {}
+  horgChipFrissit();
+};
+
+function horgChipRender(lista, kontainer) {
+  kontainer.innerHTML = '';
+  lista.forEach(h => {
+    const b = document.createElement('button');
+    b.className = 'pfx';
+    b.style.cssText = 'font-size:0.68rem;padding:2px 6px;width:auto;';
+    b.textContent = h.horgony + ' ×' + h.darab;
+    b.onclick = () => {
+      const inp = document.getElementById('bej-horgonyok');
+      const cur = inp.value.trim();
+      if (!cur.split(/[,\s]+/).includes(h.horgony)) {
+        inp.value = cur ? cur + ', ' + h.horgony : h.horgony;
+      }
+    };
+    kontainer.appendChild(b);
+  });
+}
+
+async function horgChipFrissit() {
+  if (!_dbKesz) return;
+  try {
+    const top10 = await horgonyLista();
+    horgChipRender(top10, document.getElementById('horg-top10'));
+    // Keresés fül chipek – kattintásra keres
+    const keresKontainer = document.getElementById('keres-horg-chips');
+    if (keresKontainer) {
+      keresKontainer.innerHTML = '';
+      top10.forEach(h => {
+        const b = document.createElement('button');
+        b.className = 'pfx';
+        b.style.cssText = 'font-size:0.68rem;padding:2px 6px;width:auto;';
+        b.textContent = '@' + h.horgony;
+        b.onclick = () => {
+          document.getElementById('keres-q').value = '@' + h.horgony;
+          keresFutat();
+        };
+        keresKontainer.appendChild(b);
+      });
+    }
+    const osszesLista = document.getElementById('horg-osszes-lista');
+    if (osszesLista.style.display !== 'none') {
+      const mind = await horgonyListaOsszes();
+      horgChipRender(mind, osszesLista);
+    }
+  } catch(e) {}
+}
+
+window.keresHorgOsszesToggle = async function() {
+  const lista = document.getElementById('keres-horg-osszes-lista');
+  const btn = document.getElementById('keres-horg-osszes-btn');
+  if (lista.style.display === 'none') {
+    const mind = await horgonyListaOsszes();
+    lista.innerHTML = '';
+    mind.forEach(h => {
+      const b = document.createElement('button');
+      b.className = 'pfx';
+      b.style.cssText = 'font-size:0.68rem;padding:2px 6px;width:auto;';
+      b.textContent = '@' + h.horgony;
+      b.onclick = () => {
+        document.getElementById('keres-q').value = '@' + h.horgony;
+        keresFutat();
+      };
+      lista.appendChild(b);
+    });
+    lista.style.display = 'flex';
+    btn.textContent = '▴ All anchors';
+  } else {
+    lista.style.display = 'none';
+    btn.textContent = '▾ All anchors';
+  }
+};
+
+window.horgOsszesToggle = async function() {
+  const lista = document.getElementById('horg-osszes-lista');
+  const btn = document.getElementById('horg-osszes-btn');
+  if (lista.style.display === 'none') {
+    const mind = await horgonyListaOsszes();
+    horgChipRender(mind, lista);
+    lista.style.display = 'flex';
+    btn.textContent = '▴ All anchors';
+  } else {
+    lista.style.display = 'none';
+    btn.textContent = '▾ All anchors';
+  }
+};
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+window.exportFutat = async function() {
+  if (!_dbKesz) return;
+  const jelszo = document.getElementById('exp-jelszo').value;
+  const el = document.getElementById('exp-eredmeny');
+  el.textContent = '…';
+  try {
+    await exportMemex(jelszo);
+    el.innerHTML = '<span style="color:var(--green)">' + tr('mentve') + '</span>';
+    setTimeout(() => { el.textContent = ''; }, 3000);
+  } catch(e) {
+    el.textContent = '⚠ ' + e.message;
+    setTimeout(() => { el.textContent = ''; }, 5000);
+  }
+};
+
+// ── Import ────────────────────────────────────────────────────────────────────
+
+let _impFajl = null;
+
+window.impFajlValasztva = function(inp) {
+  const nev = document.getElementById('imp-fajl-nev');
+  if (inp.files?.[0]) {
+    _impFajl = inp.files[0];
+    nev.textContent = '✓ ' + _impFajl.name;
+    nev.className = 'imp-fajl-nev van';
+    document.getElementById('imp-fajl-lbl').textContent = _impFajl.name;
+  }
+};
+
+window.importFutat = async function(ujEszkoz) {
+  const fajl = _impFajl;
+  if (!fajl) { alert(tr('fajl_valaszt')); return; }
+  const jelszo = document.getElementById('imp-jelszo').value;
+  const el = document.getElementById('imp-eredmeny');
+  el.textContent = '…';
+  try {
+    await importMemex(fajl, jelszo);
+    _impFajl = null;
+    el.innerHTML = '<span style="color:var(--green)">' + tr('mentve') + '</span>';
+    setTimeout(() => { location.reload(); }, 1500);
+  } catch(e) {
+    el.textContent = '⚠ ' + e.message;
+    setTimeout(() => { el.textContent = ''; }, 5000);
+  }
+};
+
+// ── Új adatbázis ──────────────────────────────────────────────────────────────
+
+window.ujAdatbazis = async function() {
+  if (!confirm(tr('uj_db_confirm'))) return;
+  await dbUjAdatbazis();
+  document.getElementById('uj-eredmeny').innerHTML = '<span style="color:var(--green)">✓ Üres adatbázis kész</span>';
+  await statFrissit();
+};
+
+// ── UUID ──────────────────────────────────────────────────────────────────────
+
+window.uuidMutat = function() {
+  document.getElementById('uuid-exp').textContent = uuidGet();
+};
+
+// ── DB inicializálás – LEGVÉGÉN, hogy minden függvény definiálva legyen ───────
+
+(async () => {
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  try {
+    txt.textContent = ' Adatbázis betölt…';
+    await dbInit();
+    _dbKesz = true;
+    dot.className = 'dot-ok';
+    // Verzió ellenőrzés
+    try {
+      const vr = await fetch('./version.json?_=' + Date.now());
+      const vj = await vr.json();
+      const tarolt = localStorage.getItem('mx_ver');
+      if (tarolt && tarolt !== vj.v) {
+        const badge = document.getElementById('update-badge');
+        if (badge) badge.style.display = 'inline-block';
+      }
+      localStorage.setItem('mx_ver', vj.v);
+    } catch(e) {}
+    const t = getApiTipus();
+    const k = getApiKey(t);
+    txt.textContent = ' Kész · ' + (t === 'offline' || !k ? 'Offline mód' : t);
+    await window.statFrissit();
+    window.apiValtozas();
+    tokenKijelzoFrissit();
+    // Token toggle gomb állapot
+    const tokenMutat = localStorage.getItem('mx_token_show') !== 'false';
+    const ttBtn = document.getElementById('token-show-toggle');
+    if (ttBtn) ttBtn.textContent = tokenMutat ? 'ON' : 'OFF';
+    // Session inicializálás
+    const sessLista = await sessionLista();
+    const mentettSessId = parseInt(localStorage.getItem('mx_sess_id'));
+    const talaltt = sessLista.find(s => s.id === mentettSessId);
+    if (talaltt) {
+      await chatSessionValt(talaltt.id);
+    } else if (sessLista.length > 0) {
+      await chatSessionValt(sessLista[0].id);
+    } else {
+      await window.ujChatSession();
+    }
+  } catch(e) {
+    dot.className = 'dot-err';
+    txt.textContent = ' DB hiba: ' + e.message;
+    console.error('[Memex] dbInit hiba:', e);
+  }
+})();
+
+</script>
+</body>
+</html>

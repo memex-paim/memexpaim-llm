@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#161b22"/>
+  <!-- Hexagon (flat-top, centered) -->
+  <polygon points="96,28 148,58 148,118 96,148 44,118 44,58" fill="none" stroke="#58a6ff" stroke-width="7" stroke-linejoin="round"/>
+  <text x="96" y="88" font-family="monospace" font-size="76" font-weight="bold" text-anchor="middle" dominant-baseline="middle" textLength="82" lengthAdjust="spacingAndGlyphs" fill="#58a6ff">M</text>
+  <text x="96" y="175" font-family="monospace" font-size="20" text-anchor="middle" fill="#8b949e">MEMEX</text>
+</svg>

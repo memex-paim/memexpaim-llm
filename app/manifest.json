@@ -1,0 +1,54 @@
+{
+  "id": "/app/",
+  "name": "Memex Paim",
+  "short_name": "Memex",
+  "description": "Personal AI memory – offline, your data stays yours",
+  "start_url": "./index.html",
+  "scope": "/app/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0d1117",
+  "theme_color": "#161b22",
+  "orientation": "portrait",
+  "lang": "en",
+  "dir": "ltr",
+  "iarc_rating_id": "",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Memex Paim – Chat"
+    },
+    {
+      "src": "./screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Memex Paim – Desktop"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "prefer_related_applications": false
+}
