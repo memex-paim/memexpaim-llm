@@ -154,13 +154,26 @@ While validating compute stage, entryPoint: "copy_single_page_kernel"
 
 ## Következő fejlesztési munkamenet
 
-### 🔲 Teendők
-1. ❗ WebGPU shader hiba javítása — q4f32 variáns vagy driver
-2. Qwen3-0.6B sikeres betöltés tesztelése Chrome-ban
-3. Offline/online auto-váltás logika
-4. RAG pipeline — IndexedDB keresés → kontextus → Qwen
-5. Idle refresh logika (5 perc után DB újratöltés)
-6. Tesztelés Android Chrome-on
-7. Végleges minimális UI megírása
+### 🔲 Teendők — sorrendben
+
+**1. Claude stílusú UI** ← most
+- Sidebar (szöveges, ikon nélkül): Chat · Search · Entry · Database
+- Fehér/halvány háttér, Inter betű
+- Halvány "memexpaim-llm" felirat sarokba
+
+**2. RAG pipeline**
+- IndexedDB keresés a kérdés alapján
+- Top 2-3 találat → kontextusként Qwen elé
+- Qwen csak formázza a választ
+
+**3. Felhős AI generálja a DB bejegyzéseket**
+- Claude/Gemini online → generál jó minőségű angol bejegyzéseket
+- Ezek kerülnek az IndexedDB-be
+- Qwen offline ezekből dolgozik
+
+**4. Felhasználói profil réteg**
+- Az AI ír egy profilt a felhasználóról (érdeklődés, szokások, kontextus)
+- Ez a dinamikus system prompt része
+- Minden válasznál ott van a háttérben → személyre szabott AI
 
 ---
