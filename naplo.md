@@ -107,13 +107,18 @@ While validating compute stage, entryPoint: "copy_single_page_kernel"
 - Következő kérdésnél a KV cache már meleg → azonnali válasz
 - Startup-kor mindig beolvassa a DB legfrissebb bejegyzéseit
 
-### ✅ UI terv — végleges stílus (jövő)
-- Teszt: retro terminál (marad amíg fejlesztünk)
-- Végleges: minimális, világos, "nagy cégek stílusa" (Claude/ChatGPT)
-  - Fehér/szürke háttér
-  - Jó betűtípus (Inter, system-ui)
-  - Kevés elem a felületen
-  - Könnyű, letisztult szöveg
+### ✅ UI terv — végleges stílus
+- Minimális, világos — Claude/ChatGPT stílus
+- Fehér/nagyon halvány szürke háttér
+- Betűtípus: Inter vagy system-ui — csak szöveg, nincsenek ikonok
+- Sarokba halvány "memexpaim-llm" felirat
+- Sidebar: balról nyílik, szöveges menü
+  - Chat
+  - Search
+  - Entry
+  - Database
+- Fő terület: chat interface
+- Legfeljebb egy halvány logo — semmi más díszítés
 
 ---
 
