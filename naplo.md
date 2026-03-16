@@ -28,13 +28,21 @@
 - Megoldás: **angol only + angol DB** → kisebb, gyorsabb, megbízható modell
 - Előny: SmolLM2-360M 3x kisebb, 2x gyorsabb, angolul pontos
 
-### ✅ VÉGLEGES modell döntés — SmolLM2-360M
-- **SmolLM2-360M-Instruct-q4f16_1-MLC**
-- Angol only — DB is angolul
-- ~376MB letöltés (3x kisebb mint Qwen)
-- Becsült sebesség: ~25-35 tok/s (2x gyorsabb mint Qwen2.5)
-- WebLLM 0.2.79-ben biztosan elérhető
-- Referencia: PC Chrome Nvidia = 14 tok/s volt Qwen2.5-tel → SmolLM2 ~25-30 várható
+### ❌ ELVETETT — SmolLM2-360M
+- Betöltési hiba: `shader-f16` WebGPU extension szükséges
+- Chrome alapból nem engedélyezi → nem használható PWA-ban
+- Csak Chrome Canary + `--enable-dawn-features=allow_unsafe_apis` flaggel futna
+- Ítélet: nem megbízható, felhasználó nem tud Chrome flageket állítani
+
+### ✅ VÉGLEGES modell döntés — Qwen2.5-0.5B (angol only)
+- **Qwen2.5-0.5B-Instruct-q4f32_1-MLC** — ez lett a végső válasz
+- Sajnos a multilinguális tudása gyenge — magyarul megzavarodik, értelmetlen válaszokat ad
+- Angolul viszont megfelelő, pontos eredményt produkált
+- Teszt (PC Chrome, Nvidia): "how many teeth does a human have?"
+  → "A human has 32 teeth, including 4 wisdom teeth." ✅
+  → 12 tok/s · 1.2 másodperc ✅
+- Döntés: **angol nyelv, angol DB** — ez az egyetlen megbízható út ezzel a modellel
+- Auto fallback működik: SmolLM2 próbál → hiba → Qwen2.5 tölt be automatikusan
 
 ### ✅ Sebesség és válasz stílus
 - Becsült sebesség: ~10-20 tok/s Android mid-range GPU-n
