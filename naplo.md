@@ -8,11 +8,25 @@
 ## 2026-03-16
 
 ### ❌ ELVETETT — Qwen modellek (multilinguális)
-- Qwen2.5-0.5B és Qwen3-0.6B elvetva
-- Ok 1: Qwen2.5 magyar nyelv = értelmetlen szöveg (teszten bizonyítva)
-- Ok 2: Qwen3 WebGPU shader hiba — 0.2.79 lib nem ismeri még
-- Ok 3: multilinguális = nagyobb modell = lassabb
-- Tanulság: ha csak angol kell → kisebb, gyorsabb, megbízhatóbb modell elérhető
+
+**Qwen2.5-0.5B teszt (PC Chrome, Nvidia GPU):**
+- Betöltött, futott, 14 tok/s
+- Magyar kérdés: "hány foga van egy embernek?"
+- Magyar válasz: "fognáta hozz létre érzés segítsége..." → értelmetlen szemét
+- Ítélet: multilinguális modell magyarul = használhatatlan
+
+**Qwen3-0.6B teszt (PC Chrome, Nvidia GPU):**
+- Betöltött, futott, 7 tok/s (lassabb mint Qwen2.5 mert nagyobb)
+- `/no_think` működött → `<think> </think>` üres blokk ✅
+- Magyar kérdés: "hány foga van egy embernek?"
+- Magyar válasz: "szükséges szükséges szükséges foga szükséges..." → szóismétlés, értelmetlen
+- Ítélet: multilinguális modell magyarul = használhatatlan
+
+**Végkövetkeztetés — Qwen elvetva:**
+- Multilanguage környezetben mindkét Qwen modell rossz válaszokat ad
+- A "multilinguális" megjelölés nem jelent jó minőséget kis modelleknél
+- Megoldás: **angol only + angol DB** → kisebb, gyorsabb, megbízható modell
+- Előny: SmolLM2-360M 3x kisebb, 2x gyorsabb, angolul pontos
 
 ### ✅ VÉGLEGES modell döntés — SmolLM2-360M
 - **SmolLM2-360M-Instruct-q4f16_1-MLC**
