@@ -39,14 +39,64 @@ Offline: PWA → WebLLM (Qwen3-0.6B) → IndexedDB (RAG) → válaszol
 
 ---
 
+## 2026-03-16 (folytatás)
+
+### ✅ Első teszt — retro terminál UI
+- Fekete háttér, zöld szöveg, monospace — terminál stílus
+- WebGPU ellenőrzés, progress bar, streaming válasz
+- Villogó kurzor amíg a Qwen gondolkodik
+- memexpaim.com/llm címen elérhető
+
+### ❌ HIBA — WebGPU shader hiba (első teszten)
+```
+ERROR: [Invalid ShaderModule (unlabeled)] is invalid.
+While validating compute stage, entryPoint: "copy_single_page_kernel"
+```
+- **Ok:** a GPU driver nem támogat egy speciális WebGPU shader műveletet
+- **Megoldandó:** q4f32 variáns kipróbálása, vagy más modell tesztelése először
+- **Tennivaló:** chrome://gpu ellenőrzés, driver frissítés, q4f32 fallback
+
+### ✅ Sebesség optimalizálás — /no_think
+- Qwen3 alapból "gondolkodik" (chain-of-thought) → ezt ki kell kapcsolni
+- RAG-nál nincs szükség gondolkodásra: az adat a DB-ből jön, Qwen csak formáz
+- `/no_think` system promptban → ~2x gyorsabb válasz
+- max_tokens: 256 → 128 (rövidebb = gyorsabb)
+
+### ✅ System prompt architektúra terv
+```
+2 réteg:
+1. FIX rész (10-15 token, soha nem változik):
+   "Max 2 mondat. Nincs gondolkodás. Közvetlen válasz. /no_think"
+
+2. DINAMIKUS rész (DB-ből, felhasználó írja):
+   "Kontextus: [legfrissebb 2-3 DB bejegyzés]"
+   → ez a felhasználó "írható system promptja"
+```
+
+### ✅ Idle újratöltés terv
+- Ha a felhasználó X perce nem írt → csendben reset + DB frissítés
+- Következő kérdésnél a KV cache már meleg → azonnali válasz
+- Startup-kor mindig beolvassa a DB legfrissebb bejegyzéseit
+
+### ✅ UI terv — végleges stílus (jövő)
+- Teszt: retro terminál (marad amíg fejlesztünk)
+- Végleges: minimális, világos, "nagy cégek stílusa" (Claude/ChatGPT)
+  - Fehér/szürke háttér
+  - Jó betűtípus (Inter, system-ui)
+  - Kevés elem a felületen
+  - Könnyű, letisztult szöveg
+
+---
+
 ## Következő fejlesztési munkamenet
 
 ### 🔲 Teendők
-1. WebLLM library beépítése az index.html-be
-2. Qwen3-0.6B betöltés tesztelése Chrome-ban
+1. ❗ WebGPU shader hiba javítása — q4f32 variáns vagy driver
+2. Qwen3-0.6B sikeres betöltés tesztelése Chrome-ban
 3. Offline/online auto-váltás logika
 4. RAG pipeline — IndexedDB keresés → kontextus → Qwen
-5. System prompt — rövid tömör válaszok
+5. Idle refresh logika (5 perc után DB újratöltés)
 6. Tesztelés Android Chrome-on
+7. Végleges minimális UI megírása
 
 ---
