@@ -107,6 +107,21 @@ While validating compute stage, entryPoint: "copy_single_page_kernel"
 - Következő kérdésnél a KV cache már meleg → azonnali válasz
 - Startup-kor mindig beolvassa a DB legfrissebb bejegyzéseit
 
+### 💡 Ötlet — Felhasználó által tanítható modell (2026-03-16)
+- A modell tanítható a saját DB bejegyzésekkel (RAG — ez már az alapterv)
+- **Újabb ötlet:** kód bevitel a chat ablakba — felhasználó Python fájlt nyit meg vagy másol be
+- A modell elemzi, magyarázza, vagy futtatja a kódot
+- Kód futtatás böngészőben: Python → Pyodide (WebAssembly Python futtatókörnyezet)
+- Chat ablakba beillesztett kód → modell válaszol rá
+
+**Qwen2.5-0.5B Python tudása:**
+- Általános 0.5B modell: alapszintű Python értés, egyszerű függvények
+- Komplex kódhoz: gyenge a mérete miatt
+- **Qwen2.5-Coder-0.5B** létezik WebLLM-ben → kifejezetten kódra tanítva, ugyanolyan méret
+- Ha kód funkció kell: fallback listába bekerülhet a Coder verzió
+
+**Tennivaló:** eldönteni kell az alap use case — általános asszisztens vagy kód is?
+
 ### ✅ UI terv — végleges stílus
 - Minimális, világos — Claude/ChatGPT stílus
 - Fehér/nagyon halvány szürke háttér
