@@ -107,6 +107,21 @@ While validating compute stage, entryPoint: "copy_single_page_kernel"
 - Következő kérdésnél a KV cache már meleg → azonnali válasz
 - Startup-kor mindig beolvassa a DB legfrissebb bejegyzéseit
 
+### ✅ Tervezési alapelv — A motor cserélhető (2026-03-16)
+- Az adatbázis (IndexedDB) és a modell (Qwen) teljesen szét van választva
+- Ha jobb modell kerül elő → csak a MODEL_ID változik, az adat marad
+- A felhasználó adatai soha nem vesznek el modellcsere esetén
+- Most: Qwen2.5-0.5B + angol DB → működik
+- Ha Qwen3 elérhető lesz WebLLM-ben → visszaváltunk, multilinguális DB is működni fog
+- Ez az architektúra jövőbiztos — a motor változhat, az emlékezet megmarad
+
+### ⚠️ Kritikus korlát — nyelvi összhang (2026-03-16)
+- A DB bejegyzésnek ugyanolyan nyelvűnek kell lennie mint amit a modell ért
+- Qwen2.5-0.5B: csak angol → DB is csak angolul működik megbízhatóan
+- Ha a felhasználó magyarul ír a DB-be → a modell nem érti a kontextust → rossz válasz
+- Megoldás most: angol DB + angol kérdések
+- Megoldás később: jobb multilinguális modell → modell csere → DB marad
+
 ### 💡 Ötlet — Felhasználó által tanítható modell (2026-03-16)
 - A modell tanítható a saját DB bejegyzésekkel (RAG — ez már az alapterv)
 - **Újabb ötlet:** kód bevitel a chat ablakba — felhasználó Python fájlt nyit meg vagy másol be
