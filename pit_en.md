@@ -187,6 +187,20 @@ Platform (#12)
 ```
 Each specialized database is an independent A2A agent — the platform is just the connector.
 
+### A2A Gatekeeper — User Control (2026-03-16)
+In Memex PAIM, A2A is **toggleable** — a deliberate privacy decision:
+```
+A2A OFF (default):
+  → database is closed, no external access
+
+A2A ON (user's choice):
+  → /.well-known/agent.json becomes active
+  → external AI agents can read the database
+  → confirm dialog: "do you know who you are sharing your data with?"
+```
+**The user is the gatekeeper** — not the app, not the platform, not the developer.
+This principle is the foundation of the entire platform: the data belongs to the user, they decide who sees it.
+
 ### Limitations
 - Still a young protocol (2025), actively evolving
 - Not needed in offline mode — local Qwen + IndexedDB works independently

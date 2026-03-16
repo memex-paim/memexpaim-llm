@@ -185,6 +185,20 @@ Platform (#12)
 ```
 Minden specializált adatbázis egy önálló A2A ügynök — a platform csak összekötő.
 
+### A2A kapuőr — felhasználói kontroll (2026-03-16)
+A Memex PAIM-ban az A2A **ki/be kapcsolható** — ez tudatos adatvédelmi döntés:
+```
+A2A OFF (alapértelmezett):
+  → adatbázis zárt, senki nem fér hozzá kívülről
+
+A2A ON (felhasználó döntése):
+  → /.well-known/agent.json aktív
+  → külső AI ügynökök olvashatják a DB-t
+  → confirm dialog: "tudod kivel osztod meg az adataidat?"
+```
+**A felhasználó a kapuőr** — nem az app, nem a platform, nem a fejlesztő.
+Ez az elv az egész platform alapja: az adat a felhasználóé, ő dönt ki láthatja.
+
 ### Korlátok
 - Még fiatal protokoll (2025), fejlődik
 - Offline módban nem szükséges — a helyi Qwen + IndexedDB önállóan működik
