@@ -516,6 +516,7 @@ input[type=file]#imp-fajl{display:none;}
       <div class="kereses-sor">
         <input id="keres-q" type="text" placeholder="Keresés…"
           onkeydown="if(event.key==='Enter')keresFutat()">
+        <button class="mic-btn" id="mic-btn-keres" onclick="mikofonKeres()" title="Voice search">🎤</button>
         <button class="btn" style="width:auto;padding:5px 10px;" onclick="keresFutat()">↵</button>
       </div>
       <div class="ido-gombok" id="ido-gombok" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0 6px;">
@@ -1477,6 +1478,45 @@ window.mikrofon = function() {
     const ta = document.getElementById('user-input');
     ta.value = (ta.value ? ta.value + ' ' : '') + szoveg;
     _voiceFlag = true;
+  };
+  _voiceRec.onend = () => {
+    _voiceActive = false;
+    btn.classList.remove('recording');
+  };
+  _voiceRec.onerror = () => {
+    _voiceActive = false;
+    btn.classList.remove('recording');
+  };
+  _voiceRec.start();
+};
+
+window.mikofonKeres = function() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('A böngésző nem támogatja a hangos bevitelt. Használj Chrome-ot vagy Safarit.');
+    return;
+  }
+  const btn = document.getElementById('mic-btn-keres');
+  if (_voiceActive) {
+    _voiceRec && _voiceRec.stop();
+    return;
+  }
+  _voiceRec = new SpeechRecognition();
+  _voiceRec.lang = aktivLang === 'hu' ? 'hu-HU' : aktivLang === 'de' ? 'de-DE' : aktivLang === 'fr' ? 'fr-FR' : 'en-US';
+  _voiceRec.continuous = false;
+  _voiceRec.interimResults = false;
+
+  _voiceRec.onstart = () => {
+    _voiceActive = true;
+    btn.classList.add('recording');
+  };
+  _voiceRec.onresult = (e) => {
+    const szoveg = e.results[0][0].transcript;
+    const input = document.getElementById('keres-q');
+    input.value = szoveg;
+    _voiceActive = false;
+    btn.classList.remove('recording');
+    keresFutat();
   };
   _voiceRec.onend = () => {
     _voiceActive = false;
