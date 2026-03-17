@@ -152,28 +152,35 @@ While validating compute stage, entryPoint: "copy_single_page_kernel"
 
 ---
 
+## 2026-03-17 (folytatás)
+
+### ✅ RSS + Readability.js pipeline kész
+- RSS sync: allorigins.win, ~100 feed, deduplikáció, 30 nap auto törlés
+- Readability.js (Mozilla): teljes cikk lekérés, csak szöveg, reklám nélkül
+- RAG + source gombok: Qwen RSS DB-ből válaszol, ↗ gombok cikkenként
+- Ask Qwen / Save to DB: cikk kontextusba vagy DB-be mentve
+- Hallucináció fix: strict system prompt + "DATABASE: empty" jelzés
+- Debug panel: DB stats, last 10 entry, verziószám
+- Verziószám sidebar alján (v20260317-X)
+- RSS kategória fix (autoHorgony sort bug)
+
+---
+
 ## Következő fejlesztési munkamenet
 
 ### 🔲 Teendők — sorrendben
 
-**1. Claude stílusú UI** ← most
-- Sidebar (szöveges, ikon nélkül): Chat · Search · Entry · Database
-- Fehér/halvány háttér, Inter betű
-- Halvány "memexpaim-llm" felirat sarokba
+**1. ~~Claude stílusú UI~~** ❌ NEM AKTÍV — sötét téma marad
 
-**2. RAG pipeline**
-- IndexedDB keresés a kérdés alapján
-- Top 2-3 találat → kontextusként Qwen elé
-- Qwen csak formázza a választ
+**2. Google link fallback**
+- Ha Qwen nem talál DB-ben semmit → `google.com/search?q=...` kattintható link
+- Nem automatikus, felhasználó dönt
 
-**3. Felhős AI generálja a DB bejegyzéseket**
-- Claude/Gemini online → generál jó minőségű angol bejegyzéseket
-- Ezek kerülnek az IndexedDB-be
-- Qwen offline ezekből dolgozik
+**3. Felhős AI generált angol DB bejegyzések**
+- Claude/Gemini online → generál minőségi angol bejegyzéseket
+- Ezek kerülnek az IndexedDB-be, Qwen offline ezekből dolgozik
 
 **4. Felhasználói profil réteg**
-- Az AI ír egy profilt a felhasználóról (érdeklődés, szokások, kontextus)
-- Ez a dinamikus system prompt része
-- Minden válasznál ott van a háttérben → személyre szabott AI
+- AI ír profilt a userről → dinamikus system prompt része
 
 ---
