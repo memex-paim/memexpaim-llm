@@ -324,6 +324,7 @@ input[type=file]#imp-fajl{display:none;}
             <option value="auto">⚡ Auto</option>
             <option value="claude">Claude (Anthropic)</option>
             <option value="gemini">Gemini (Google)</option>
+            <option value="webllm">🤖 WebLLM (Offline, helyi AI)</option>
             <option value="offline">Offline</option>
           </select></div>
         <div id="kulcs-block">
@@ -441,6 +442,8 @@ input[type=file]#imp-fajl{display:none;}
       </div>
     </div>
   </div>
+
+  <div style="padding:5px 4px;margin-top:auto;font-size:0.6rem;color:var(--text2);border-top:1px solid var(--border);">🤖 <span id="aktiv-model-nev" style="color:var(--accent);">–</span></div>
 
 </div><!-- /sidebar -->
 
@@ -947,10 +950,20 @@ function memexAllapotFrissit(){
   t.classList.toggle('on',memexBe);
   document.getElementById('toggle-label').textContent=memexBe?tr('be'):tr('ki');
 }
+function aktivModelFrissit(){
+  const t=document.getElementById('api-type').value;
+  const el=document.getElementById('aktiv-model-nev');
+  if(!el)return;
+  if(t==='webllm'){
+    el.textContent=localStorage.getItem('mx_model_webllm')||'WebLLM';
+  } else {
+    el.textContent=selModel||t||'–';
+  }
+}
 function apiValtozas(){
   const t=document.getElementById('api-type').value;
   localStorage.setItem('mx_api',t);
-  document.getElementById('kulcs-block').style.display=['offline','ollama','auto'].includes(t)?'none':'block';
+  document.getElementById('kulcs-block').style.display=['offline','ollama','auto','webllm'].includes(t)?'none':'block';
   document.getElementById('model-block').style.display=t==='offline'?'none':'block';
   const el=document.getElementById('api-aktiv-label');
   if(t!=='auto'){
@@ -1015,9 +1028,25 @@ async function modelekListaz(){
   const info=document.getElementById('model-info');
   const sel=document.getElementById('model-select');
   if(!info||!sel)return;
+  const t=document.getElementById('api-type').value;
+
+  if(t==='webllm'){
+    const webllmModelek=[
+      {id:'Qwen2.5-0.5B-Instruct-q4f32_1-MLC',nev:'Qwen2.5 0.5B (gyors, ~500MB)'},
+      {id:'gemma-2-2b-it-q4f16_1-MLC',nev:'Gemma 2 2B (jobb minőség, ~1.5GB)'},
+      {id:'Llama-3.2-1B-Instruct-q4f16_1-MLC',nev:'Llama 3.2 1B (~700MB)'},
+    ];
+    const saved=localStorage.getItem('mx_model_webllm')||webllmModelek[0].id;
+    sel.innerHTML=webllmModelek.map(m=>`<option value="${m.id}"${m.id===saved?' selected':''}>${m.nev}</option>`).join('');
+    selModel=saved;
+    localStorage.setItem('mx_model',saved);
+    info.innerHTML='<span style="color:var(--green)">WebLLM modellek</span>';
+    aktivModelFrissit();
+    return;
+  }
+
   info.textContent=tr('loading');
   try{
-    const t=document.getElementById('api-type').value;
     const d=await apiFetch('/modelek_lista'+(t&&t!=='auto'?'?api='+t:''));
     const modelek=d.modelek||[];
     sel.innerHTML='';
@@ -1043,7 +1072,10 @@ async function modelekListaz(){
 function modelKivalaszt(id){
   selModel=id;
   localStorage.setItem('mx_model',id);
+  const t=document.getElementById('api-type').value;
+  if(t==='webllm') localStorage.setItem('mx_model_webllm',id);
   connInfoFrissit(true,document.getElementById('api-aktiv-label').textContent,id);
+  aktivModelFrissit();
 }
 function prefixSet(m){
   aktPrefix=m;
@@ -1154,7 +1186,14 @@ async function kuld(){
   const model=selModel;
   try{
     const sp=localStorage.getItem('mx_sysprompt')||'';
-    const d=await apiFetch('/kerdes',{method:'POST',body:JSON.stringify({kerdes:sz,api,model,routing,...(sp?{rendszer_prompt:sp}:{})})});
+    let d;
+    if(api==='webllm'){
+      if(!window.webllmHivas){loaderTorol();uzenetHozzaad('WebLLM még inicializálódik, próbáld újra…','ai','');btn.disabled=false;return;}
+      const valasz=await window.webllmHivas(sz,sp);
+      d={valasz,ai_valasz:valasz,routing:'ai'};
+    } else {
+    d=await apiFetch('/kerdes',{method:'POST',body:JSON.stringify({kerdes:sz,api,model,routing,...(sp?{rendszer_prompt:sp}:{})})});
+    }
     loaderTorol();
     let sections=null;
     if(d.db_valasz&&d.ai_valasz){
@@ -1415,6 +1454,47 @@ const _sp=localStorage.getItem('mx_sysprompt');
 if(_sp){const ta=document.getElementById('sysprompt-ta');if(ta)ta.value=_sp;}
 
 tesztelKapcsolat();
+</script>
+
+<script type="module">
+import * as webllm from 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm';
+
+let _engine=null;
+let _betoltottModel='';
+
+window.webllmHivas=async function(uzenet,rendszer){
+  const modelId=localStorage.getItem('mx_model_webllm')||'Qwen2.5-0.5B-Instruct-q4f32_1-MLC';
+  const dot=document.getElementById('conn-dot');
+  const txt=document.getElementById('conn-text');
+
+  if(_betoltottModel!==modelId||!_engine){
+    dot.className='dot-err';
+    txt.textContent=' WebLLM betölt…';
+    _engine=await webllm.CreateMLCEngine(modelId,{
+      initProgressCallback:(p)=>{
+        txt.textContent=' '+(p.text?p.text.slice(0,55):'Betölt…');
+      }
+    });
+    _betoltottModel=modelId;
+    dot.className='dot-ok';
+    txt.textContent=' '+modelId.split('-').slice(0,2).join('-')+' · kész';
+  }
+
+  const messages=[];
+  if(rendszer) messages.push({role:'system',content:rendszer});
+  messages.push({role:'user',content:uzenet});
+
+  const t0=Date.now();
+  const reply=await _engine.chat.completions.create({messages,temperature:0.7,max_tokens:512});
+  const t1=Date.now();
+
+  const text=reply.choices[0].message.content||'';
+  const tokens=reply.usage?.completion_tokens||0;
+  const secs=((t1-t0)/1000).toFixed(1);
+  const tps=tokens>0?(tokens/((t1-t0)/1000)).toFixed(1):'?';
+
+  return text+'\n\n📊 '+tps+' tok/s · '+secs+'s';
+};
 </script>
 </body>
 </html>
