@@ -68,5 +68,36 @@ Offline: PWA → WebLLM (Qwen3-0.6B) → IndexedDB (RAG) → válaszol
 
 ## Technikai jegyzetek
 - WebLLM CDN: `https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm`
-- Modell azonosító: `Qwen3-0.6B-q4f16_1-MLC`
+- Modell azonosító: `Qwen2.5-0.5B-Instruct-q4f32_1-MLC` (aktív), Gemma 2: `gemma-2-2b-it-q4f16_1-MLC` (tesztelés alatt)
 - WebGPU szükséges: Chrome 113+ Android-on támogatott
+- Sebesség benchmark: Qwen2.5-0.5B → 7 tok/s A54-en, 12 tok/s PC Chrome-on
+- Etalon: Gemini Nano ~45 tok/s (Pixel 9, Tensor G4 NPU-n)
+
+---
+
+## KRITIKUS — Repo és URL struktúra
+
+**Ez a repo (`memexpaim-llm`) = `memexpaim.com/llm/`**
+
+| Könyvtár | URL | Státusz |
+|----------|-----|---------|
+| `ui/index.html` | `memexpaim.com/llm/ui/` | ✅ **IDE DOLGOZUNK** |
+| `app/` | `memexpaim.com/llm/app/` | 🚫 NE NYÚLJ HOZZÁ (kész Memex PAIM) |
+| `memexpaim.com/app/` | másik repo | 🚫 NE NYÚLJ HOZZÁ |
+
+**Fejlesztési fájl: `ui/index.html`**
+
+---
+
+## Modell döntések (2026-03-17)
+
+| Modell | Státusz | Megjegyzés |
+|--------|---------|------------|
+| Qwen2.5-0.5B-Instruct-q4f32_1-MLC | ✅ aktív | PC+A54 tesztelve, angolul működik |
+| gemma-2-2b-it-q4f16_1-MLC | 🔲 tesztelendő | jobb minőség, ~1.5GB |
+| Qwen3-0.6B | ❌ elvetva | lassabb, magyarul ugyanolyan rossz |
+| SmolLM2-360M | ❌ elvetva | shader hiba volt |
+
+**Fontos:** kis modellek (~1B alatt) magyarul NEM megbízhatók → **angol only rendszer**
+
+**Adatvédelem elsődleges:** Qwen2.5 az alap (offline, privát), Cloud AI csak ha felhasználó engedélyezi.
