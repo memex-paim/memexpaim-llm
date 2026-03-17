@@ -273,7 +273,6 @@ input[type=file]#imp-fajl{display:none;}
           <select id="api-type">
             <option value="gemini" id="opt-gemini">Gemini (Google – ingyenes)</option>
             <option value="claude" id="opt-claude">Claude (Anthropic – fizetős)</option>
-            <option value="webllm">🤖 WebLLM (Offline, helyi AI)</option>
             <option value="offline">🚫 Offline (AI nélkül)</option>
           </select>
         </div>
@@ -424,8 +423,6 @@ input[type=file]#imp-fajl{display:none;}
       </div>
     </div>
   </div>
-
-  <div style="padding:5px 4px;margin-top:auto;font-size:0.6rem;color:var(--text2);border-top:1px solid var(--border);">🤖 <span id="aktiv-model-nev" style="color:var(--accent);">–</span></div>
 
 </div><!-- /sidebar -->
 
@@ -1556,7 +1553,7 @@ function getModel() { return localStorage.getItem('mx_model') || ''; }
 window.apiValtozas = function() {
   const t = document.getElementById('api-type').value;
   localStorage.setItem('mx_api', t);
-  document.getElementById('kulcs-block').style.display = (t === 'offline' || t === 'webllm') ? 'none' : 'block';
+  document.getElementById('kulcs-block').style.display = t === 'offline' ? 'none' : 'block';
   document.getElementById('model-block').style.display = t === 'offline' ? 'none' : 'block';
   document.getElementById('api-aktiv').textContent = t;
   // Kulcs előtöltés
@@ -1564,17 +1561,16 @@ window.apiValtozas = function() {
   document.getElementById('api-key').value = k || '';
   // Figyelmeztetés ha nincs kulcs
   const figy = document.getElementById('kulcs-figyelmeztet');
-  figy.style.display = (t !== 'offline' && t !== 'webllm' && !k) ? 'block' : 'none';
+  figy.style.display = (t !== 'offline' && !k) ? 'block' : 'none';
   // Modellek
   modelekFrissit(t);
   // conn-info
   const dot = document.getElementById('conn-dot');
   const txt = document.getElementById('conn-text');
   if (_dbKesz) {
-    dot.className = (t === 'offline' || (!k && t !== 'webllm')) ? 'dot-warn' : 'dot-ok';
+    dot.className = t === 'offline' || !k ? 'dot-warn' : 'dot-ok';
     const modell = localStorage.getItem('mx_model_' + t) || t;
-    txt.textContent = ' ' + (t === 'offline' ? tr('offline_mod') : t === 'webllm' ? (localStorage.getItem('mx_model_webllm') || 'WebLLM') : k ? modell : t + tr('kulcs_hianyz'));
-  window.aktivModelFrissit();
+    txt.textContent = ' ' + (t === 'offline' ? tr('offline_mod') : k ? modell : t + tr('kulcs_hianyz'));
   }
 };
 // Event listenerek – megbízhatóbbak mint onchange="" module contextben
@@ -1601,24 +1597,6 @@ async function modelekFrissit(tipus) {
   const sel = document.getElementById('model-select');
   const info = document.getElementById('kulcs-info');
   if (tipus === 'offline') { sel.innerHTML = ''; return; }
-
-  if (tipus === 'webllm') {
-    const webllmModelek = [
-      { id: 'Qwen2.5-0.5B-Instruct-q4f32_1-MLC', nev: 'Qwen2.5 0.5B (gyors, ~500MB)' },
-      { id: 'gemma-2-2b-it-q4f16_1-MLC', nev: 'Gemma 2 2B (jobb minőség, ~1.5GB)' },
-      { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', nev: 'Llama 3.2 1B (~700MB)' },
-    ];
-    const saved = localStorage.getItem('mx_model_webllm') || webllmModelek[0].id;
-    sel.innerHTML = webllmModelek.map(m =>
-      `<option value="${m.id}" ${m.id === saved ? 'selected' : ''}>${m.nev}</option>`
-    ).join('');
-    if (!localStorage.getItem('mx_model_webllm')) {
-      localStorage.setItem('mx_model_webllm', webllmModelek[0].id);
-      localStorage.setItem('mx_model', webllmModelek[0].id);
-    }
-    window.aktivModelFrissit();
-    return;
-  }
 
   const kulcs = getApiKey(tipus);
   if (!kulcs) { sel.innerHTML = `<option value="">${tr('modell_kulcs_kell')}</option>`; return; }
@@ -1682,21 +1660,7 @@ async function modelekFrissit(tipus) {
     if (info) info.textContent = 'Modell lekérés hiba: ' + e.message;
   }
 }
-window.modelKivalaszt = function(v) {
-  localStorage.setItem('mx_model', v);
-  const t = getApiTipus();
-  if (t === 'webllm') localStorage.setItem('mx_model_webllm', v);
-  window.aktivModelFrissit();
-};
-
-window.aktivModelFrissit = function() {
-  const t = getApiTipus();
-  const m = t === 'webllm'
-    ? (localStorage.getItem('mx_model_webllm') || 'WebLLM')
-    : (localStorage.getItem('mx_model') || t);
-  const el = document.getElementById('aktiv-model-nev');
-  if (el) el.textContent = m;
-};
+window.modelKivalaszt = function(v) { localStorage.setItem('mx_model', v); };
 
 // ── Közvetlen AI hívás ────────────────────────────────────────────────────────
 
@@ -1814,11 +1778,6 @@ async function aiHivas(uzenet, rendszer = '') {
   const tipus = getApiTipus();
   const kulcs = getApiKey(tipus);
   const modell = getModel();
-
-  if (tipus === 'webllm') {
-    if (!window.webllmHivas) return '[WebLLM még inicializálódik, próbáld újra…]';
-    return await window.webllmHivas(uzenet, rendszer);
-  }
 
   if (tipus === 'offline') {
     return '[Offline mód – AI nélkül. Válts Gemini vagy Claude típusra az oldalsávban, és adj meg API kulcsot.]';
@@ -2658,48 +2617,6 @@ window.uuidMutat = function() {
   }
 })();
 
-</script>
-
-<script type="module">
-import * as webllm from 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm';
-
-let _engine = null;
-let _betoltottModel = '';
-
-window.webllmHivas = async function(uzenet, rendszer) {
-  const modelId = localStorage.getItem('mx_model_webllm') || 'Qwen2.5-0.5B-Instruct-q4f32_1-MLC';
-  const dot = document.getElementById('conn-dot');
-  const txt = document.getElementById('conn-text');
-
-  if (_betoltottModel !== modelId || !_engine) {
-    dot.className = 'dot-warn';
-    txt.textContent = ' WebLLM betölt…';
-    _engine = await webllm.CreateMLCEngine(modelId, {
-      initProgressCallback: (p) => {
-        txt.textContent = ' ' + (p.text ? p.text.slice(0, 60) : 'Betölt…');
-      }
-    });
-    _betoltottModel = modelId;
-    dot.className = 'dot-ok';
-    const rovidNev = modelId.split('-').slice(0,2).join('-');
-    txt.textContent = ' ' + rovidNev + ' · kész';
-  }
-
-  const messages = [];
-  if (rendszer) messages.push({ role: 'system', content: rendszer });
-  messages.push({ role: 'user', content: uzenet });
-
-  const t0 = Date.now();
-  const reply = await _engine.chat.completions.create({ messages, temperature: 0.7, max_tokens: 512 });
-  const t1 = Date.now();
-
-  const text = reply.choices[0].message.content || '';
-  const tokens = reply.usage?.completion_tokens || 0;
-  const secs = ((t1 - t0) / 1000).toFixed(1);
-  const tps = tokens > 0 ? (tokens / ((t1 - t0) / 1000)).toFixed(1) : '?';
-
-  return text + '\n\n📊 ' + tps + ' tok/s · ' + secs + 's';
-};
 </script>
 </body>
 </html>
