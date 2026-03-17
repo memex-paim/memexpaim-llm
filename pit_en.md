@@ -152,10 +152,8 @@
 - Claude Desktop + MCP + Samba (Z:\\) integration successfully deployed
 - Voice input works (Chrome/Safari, @voice anchor)
 
-### Claude.ai Project Prompt (GVBC)
-- Golf Value Bet Calculator: Pinnacle sharp odds + Altenar soft odds comparison
-- H2H 18-hole, Top 20, H2H 72-hole markets
-- Kelly sizing 0.25 fraction, bankroll 50,000 HUF, EV threshold 8%, odds 2.00–15.00
+### Claude.ai Project Prompt
+- Personal AI memory project development
 
 ---
 

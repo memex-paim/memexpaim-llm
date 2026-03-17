@@ -150,10 +150,8 @@
 - Claude Desktop + MCP + Samba (Z:\\) integráció sikeresen beüzemelve
 - Hangos bevitel működik (Chrome/Safari, @voice horgony)
 
-### Claude.ai projekt prompt (GVBC)
-- Golf Value Bet Calculator: Pinnacle sharp odds + Altenar soft odds összehasonlítás
-- H2H 18-lyukú, Top 20, H2H 72-lyukú piacok
-- Kelly sizing 0.25 frakció, bankroll 50 000 Ft, EV küszöb 8%, odds 2.00–15.00
+### Claude.ai projekt prompt
+- Személyes AI memória projekt fejlesztése
 
 ---
 

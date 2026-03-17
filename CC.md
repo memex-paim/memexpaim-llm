@@ -95,7 +95,6 @@ Ha hallucináll vagy "no data" → a RAG vagy a DB feltöltés a probléma.
 | Mappa | Szerep |
 |-------|--------|
 | `/home/admin/server/memex-paim/` | A repo lokális klónja — **ide kell cd-zni fejlesztéshez** |
-| `/home/admin/server/memexpaim-llm/` | Ez a mappa — napló, dokumentáció |
 | `/home/admin/server/memex/` | Archív — itt kezdődött a Memex PAIM fejlesztése |
 
 ## Hasznos fájlok ebben a mappában
