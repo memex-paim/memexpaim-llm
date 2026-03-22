@@ -5,6 +5,38 @@
 
 ---
 
+## 2026-03-22
+
+### 🔮 KÖVETKEZŐ TESZT — Google Gemma 3n modellek
+
+**Motiváció:** Google Gemma 3n erős on-device modellek — Qwen leváltása tesztelés után lehetséges.
+
+**Két modell van:**
+
+| Modell | Effektív param | Architektúra | Megjegyzés |
+|--------|---------------|-------------|------------|
+| `gemma-3n-E2B` | ~2B | MatFormer (nested) | Kisebb, gyorsabb, mobilra |
+| `gemma-3n-E4B` | ~4B | MatFormer (nested) | Erősebb, több memória kell |
+
+**WebLLM model ID-k (teszteléskor pontosítani!):**
+- `gemma-3n-E2B-it-q4f32_1-MLC`
+- `gemma-3n-E4B-it-q4f32_1-MLC`
+
+**Miért érdemes tesztelni:**
+- MatFormer architektúra → dinamikusan átméretezhető (E2B/E4B ugyanaz a súlyfájl)
+- On-device optimalizált — WebGPU-ra tervezték
+- Multilinguális teljesítmény várhatóan jobb mint Qwen 0.5B-nél
+- Google I/O 2025 bejelentés — az architektúra kifejezetten edge inference-re készült
+
+**Teszt terv:**
+1. WebLLM-be betölteni E2B-t → "how many teeth does a human have?" → angolul validál
+2. Ha angolul pontos → RAG pipeline-ba illeszteni
+3. Ha gyors és stabil → Qwen leváltható
+
+**Státusz:** ⏳ Vár tesztelésre — ha projekt folytatódik, innen kell indulni.
+
+---
+
 ## 2026-03-16
 
 ### ❌ ELVETETT — Qwen modellek (multilinguális)

@@ -64,13 +64,17 @@ The local model doesn't need to "know" everything — it reads your saved entrie
 
 ## Local Model Options
 
-| Model | RAM usage | Quality |
-|-------|-----------|---------|
-| SmolLM2 135M | ~200MB | basic |
-| **SmolLM2 360M** | ~400MB | good — recommended |
-| Qwen2.5 0.5B | ~650MB | better |
+| Model | RAM usage | Status |
+|-------|-----------|--------|
+| **Qwen2.5-0.5B** | ~650MB | ✅ Current — accurate in English, 7-12 tok/s |
+| Gemma-3n-E2B (Google) | ~600MB | ⏳ Next to test — on-device optimized, WebGPU-native |
+| Gemma-3n-E4B (Google) | ~1.1GB | ⏳ Next to test — stronger, same weight file as E2B |
+| SmolLM2 360M | ~400MB | ❌ Dropped — WebGPU shader-f16 error in Chrome |
+| SmolLM2 135M | ~200MB | ❌ Dropped — same shader issue |
 
 All models run via [WebLLM](https://webllm.mlc.ai/) — a library that runs language models directly in the browser using WebGPU. No installation, no Termux, no native app needed.
+
+> **English only** — small models (~0.5B) are unreliable in other languages. The DB and queries should also be in English for RAG to work correctly.
 
 ---
 
@@ -96,14 +100,16 @@ All models run via [WebLLM](https://webllm.mlc.ai/) — a library that runs lang
 
 ## Status
 
-> **Concept / Early Development** — March 2026
+> **Active Development** — March 2026
 
 - [x] Base concept defined
 - [x] Architecture designed
 - [x] Memex PAIM integrated as foundation
-- [ ] WebLLM integration
-- [ ] Offline/online auto-switching
-- [ ] Local RAG pipeline
+- [x] WebLLM integration (Qwen2.5-0.5B)
+- [x] Local RAG pipeline (IndexedDB → top 5 results → context)
+- [x] RSS sync + Readability.js (full article fetch)
+- [x] Offline/online auto-switching
+- [ ] Testing Google Gemma 3n (E2B / E4B) — next step
 - [ ] Testing on Android Chrome
 
 ---
